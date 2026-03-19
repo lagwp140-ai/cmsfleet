@@ -6,6 +6,8 @@ import type { CmsConfig, ConfigRuntimeContext } from "@cmsfleet/config-runtime";
 
 import { registerAuthModule } from "./modules/auth/module.js";
 import { registerGpsModule } from "./modules/gps/module.js";
+import { registerGtfsModule } from "./modules/gtfs/module.js";
+import { registerRoutesModule } from "./modules/routes/module.js";
 import { registerVehiclesModule } from "./modules/vehicles/module.js";
 
 export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext) {
@@ -36,6 +38,8 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
   await registerAuthModule(app, config, context);
   await registerVehiclesModule(app, config, context);
   await registerGpsModule(app, config);
+  await registerGtfsModule(app, config);
+  await registerRoutesModule(app, config);
 
   app.get("/health", async () => ({
     environment: config.selection.environment,

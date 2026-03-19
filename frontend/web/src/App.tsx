@@ -5,8 +5,10 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminShell } from "./layouts/AdminShell";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { GpsPage } from "./pages/GpsPage";
+import { GtfsPage } from "./pages/GtfsPage";
 import { AdminLogsPage } from "./pages/AdminLogsPage";
 import { AdminModulePage } from "./pages/AdminModulePage";
+import { RoutesPage } from "./pages/RoutesPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { LoginPage } from "./pages/LoginPage";
 import { VehiclesPage } from "./pages/VehiclesPage";
@@ -22,8 +24,8 @@ export function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="vehicles" element={<VehiclesPage />} />
           <Route path="gps" element={<GpsPage />} />
-          <Route path="routes" element={<AdminModulePage moduleKey="routes" />} />
-          <Route path="gtfs" element={<AdminModulePage moduleKey="gtfs" />} />
+          <Route path="routes" element={<RoutesPage />} />
+          <Route path="gtfs" element={<GtfsPage />} />
           <Route path="displays" element={<AdminModulePage moduleKey="displays" />} />
           <Route path="devices" element={<AdminModulePage moduleKey="devices" />} />
           <Route path="logs" element={<AdminLogsPage />} />

@@ -20,10 +20,21 @@ Later layers win.
 ## Profile Responsibilities
 
 - Tenant profiles own branding, locale, tenant identity, and tenant-level feature defaults.
-- Transport profiles own route strategy, GTFS settings, and GPS provider defaults.
+- Transport profiles own route strategy, GTFS settings, GPS provider defaults, and schedule resolution tolerances.
 - Vehicle profiles own class, capacity, and accessibility defaults.
 - Device profiles own onboard compute and connectivity capabilities.
 - Display profiles own LED mapping rules and controller-specific settings.
+
+## Route Resolution Policy
+
+Route resolution is configuration-driven through the transport profile. The current policy surface includes:
+
+- `routeStrategy.type` for the overall resolver mode
+- `routeStrategy.resolutionOrder` for staged rollout order such as `manual -> schedule -> gps`
+- `routeStrategy.scheduleEarlyToleranceMinutes`, `scheduleLateToleranceMinutes`, and `scheduleLookaheadMinutes` for GTFS-assisted trip selection windows
+- `routeStrategy.fallbackDestination` for downstream display fallback behavior
+
+This keeps the resolver behavior deployable per transport environment without changing core code.
 
 ## Fail-Fast Behavior
 

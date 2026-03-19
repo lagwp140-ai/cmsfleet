@@ -1,6 +1,6 @@
-﻿# PostgreSQL Schema and Migrations
+# PostgreSQL Schema and Migrations
 
-The canonical PostgreSQL schema for the CMS lives in [`backend/api/db/migrations`](/c:/Projects/cmsfleet/backend/api/db/migrations). The migration set is organized by domain so identity, fleet data, transit reference data, telemetry, and operational history can evolve without one monolithic SQL file.
+The canonical PostgreSQL schema for the CMS lives in [`backend/api/db/migrations`](/c:/Projects/cmsfleet/backend/api/db/migrations). The migration set is organized by domain so identity, fleet data, transit reference data, telemetry, GTFS lifecycle state, and operational history can evolve without one monolithic SQL file.
 
 ## Migration Order
 
@@ -11,13 +11,15 @@ The canonical PostgreSQL schema for the CMS lives in [`backend/api/db/migrations
 5. `0005_operations_telemetry_config_system`
 6. `0006_vehicle_assignment_and_route_override`
 7. `0007_gps_operational_state`
+8. `0008_gtfs_dataset_pipeline`
+9. `0009_route_resolution_and_service_calendar`
 
 ## Domain Layout
 
 - `auth`: users, roles, permissions, user-role assignments, password credentials, and sessions
 - `fleet`: vehicles plus device, display, and transport profile assignment state
-- `transit`: routes, route variants, trips, stops, and stop times
-- `operations`: GTFS import jobs and display messages
+- `transit`: routes, route variants, trips, stops, stop times, and GTFS service calendars
+- `operations`: GTFS import jobs, GTFS datasets, GTFS validation errors, GTFS staging tables, vehicle route resolutions, and display messages
 - `telemetry`: append-heavy GPS messages, current vehicle positions, and derived vehicle operational state
 - `config`: versioned JSON configuration snapshots
 - `system`: audit logs and runtime/system events
@@ -43,6 +45,8 @@ The script reads `CMS_DATABASE_URL` by default and applies files in lexical orde
 - `telemetry.gps_messages` is partitioned by `received_at` and starts with a default partition so ingestion can begin immediately.
 - `telemetry.vehicle_positions` remains the hot-path coordinate table for latest fix lookups.
 - `0007_gps_operational_state` adds `telemetry.vehicle_operational_states` so connection health, movement state, speed, heading, and future telemetry enrichments are stored separately from raw events.
+- `0008_gtfs_dataset_pipeline` adds import jobs, datasets, validation errors, staging tables, and dataset-scoped transit records so multiple GTFS versions can coexist for activation and rollback.
+- `0009_route_resolution_and_service_calendar` adds GTFS service calendars, calendar-date exceptions, and persisted per-vehicle route resolution snapshots for manual and schedule-based dispatch logic.
 - Route and stop lookup rely on trigram indexes for operator search paths and composite indexes for schedule joins.
 - `0006_vehicle_assignment_and_route_override` adds administrative enablement, transport profile keys, and manual route override support to `fleet.vehicles`.
 - The current auth runtime still bootstraps its own temporary `cms_auth_*` tables; the migration set is the intended canonical schema for the next auth persistence refactor.

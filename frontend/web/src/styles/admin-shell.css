@@ -961,3 +961,11 @@ button:hover {
     flex-direction: column;
   }
 }
+
+.gtfs-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.registry-card__spec strong {
+  overflow-wrap: anywhere;
+}

@@ -1,11 +1,19 @@
-﻿{
+{
     "transport":  {
                       "mode":  "bus",
                       "serviceArea":  "airport-corridor",
                       "routeStrategy":  {
                                             "type":  "static-pattern",
                                             "fallbackDestination":  "Airport Terminal",
-                                            "preferRealtimeTripUpdates":  false
+                                            "preferRealtimeTripUpdates":  false,
+                                            "resolutionOrder":  [
+                                                                    "manual",
+                                                                    "schedule",
+                                                                    "gps"
+                                                                ],
+                                            "scheduleEarlyToleranceMinutes":  10,
+                                            "scheduleLateToleranceMinutes":  20,
+                                            "scheduleLookaheadMinutes":  30
                                         }
                   },
     "gps":  {

@@ -1,4 +1,4 @@
-﻿# cmsfleet
+# cmsfleet
 
 Production-oriented monorepo skeleton for a bus CMS platform.
 
@@ -85,6 +85,16 @@ The first fleet-management slice is now live across the API, database, and admin
 - manual route override support for dispatch-driven exceptions
 - a dedicated vehicle registry screen in [`frontend/web/src/pages/VehiclesPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/VehiclesPage.tsx)
 
+## Route Resolution Engine
+
+The platform now resolves the current operating service for each bus with a manual-first workflow:
+
+- manual route assignment remains the authoritative route source in the MVP
+- GTFS schedule support selects the active or upcoming trip, direction, and next stop candidate on that route
+- versioned GTFS calendar data from `calendar.txt` and `calendar_dates.txt` is now loaded into PostgreSQL for service-day evaluation
+- unresolved auto-mode vehicles are held in an explicit `awaiting_auto_match` state until GPS-assisted matching is added later
+- operator visibility is available through [`frontend/web/src/pages/RoutesPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/RoutesPage.tsx)
+- architecture notes live in [`docs/architecture/route-resolution.md`](/c:/Projects/cmsfleet/docs/architecture/route-resolution.md)
 ## GPS Ingestion and Telemetry
 
 The platform now includes a real-time GPS ingestion path for onboard modules:
@@ -97,6 +107,17 @@ The platform now includes a real-time GPS ingestion path for onboard modules:
 - config-driven online, stale, offline, and movement thresholds using `freshnessThresholdSeconds`, `offlineThresholdSeconds`, and `movementThresholdKph`
 - admin visibility through [`frontend/web/src/pages/GpsPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/GpsPage.tsx) and the architecture note in [`docs/architecture/gps-ingestion.md`](/c:/Projects/cmsfleet/docs/architecture/gps-ingestion.md)
 
+## GTFS Import and Versioning
+
+The platform now includes a versioned GTFS control path for route and trip data:
+
+- GTFS zip upload and server-local path import from the admin UI
+- parsing and validation of `routes.txt`, `stops.txt`, `trips.txt`, and `stop_times.txt`
+- staging tables and validation error capture under the `operations` schema
+- immutable dataset versions with activation of one selected dataset at a time
+- rollback to a previously retained dataset without deleting historical versions
+- import history and validation reporting in [`frontend/web/src/pages/GtfsPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/GtfsPage.tsx)
+- pipeline documentation in [`docs/architecture/gtfs-import-pipeline.md`](/c:/Projects/cmsfleet/docs/architecture/gtfs-import-pipeline.md)
 ## Getting Started
 
 1. Install Node.js 22.x, npm 10.x, PostgreSQL 16+, and Java 21.
@@ -120,7 +141,9 @@ The platform now includes a real-time GPS ingestion path for onboard modules:
 - Migrate the auth persistence layer from boot-time tables to the normalized `auth` schema.
 - Connect mutation actor tracking to canonical auth users so fleet and config changes can record foreign-key-safe actor IDs.
 - Expand GPS transport adapters from HTTP JSON into TCP gateway or MQTT connectors while keeping the shared service layer intact.
-- Expand canonical-schema repositories into routes, GTFS jobs, display publishing, and richer telemetry workflows.
+- Add GPS-assisted automatic trip matching on top of the manual and schedule-based route engine.
 - Add CI to run config validation, lint, typecheck, unit tests, and migration validation.
-- Define the first GTFS import contract before building the Java service internals.
+- Add remote URL ingestion and scheduled GTFS sync workers on top of the existing dataset activation and calendar model.
+
+
 

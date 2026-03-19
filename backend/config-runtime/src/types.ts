@@ -67,6 +67,10 @@ export interface TransportConfig {
     type: string;
     fallbackDestination: string;
     preferRealtimeTripUpdates: boolean;
+    resolutionOrder: Array<"manual" | "schedule" | "gps">;
+    scheduleEarlyToleranceMinutes: number;
+    scheduleLateToleranceMinutes: number;
+    scheduleLookaheadMinutes: number;
   };
 }
 
@@ -182,6 +186,8 @@ export interface LoadCmsConfigOptions {
   cwd?: string;
   rawEnv?: NodeJS.ProcessEnv;
 }
+
+
 
 
 

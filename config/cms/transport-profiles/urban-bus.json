@@ -1,11 +1,19 @@
-﻿{
+{
     "transport":  {
                       "mode":  "bus",
                       "serviceArea":  "urban-grid",
                       "routeStrategy":  {
                                             "type":  "gtfs-trip-headsign",
                                             "fallbackDestination":  "City Depot",
-                                            "preferRealtimeTripUpdates":  true
+                                            "preferRealtimeTripUpdates":  true,
+                                            "resolutionOrder":  [
+                                                                    "manual",
+                                                                    "schedule",
+                                                                    "gps"
+                                                                ],
+                                            "scheduleEarlyToleranceMinutes":  10,
+                                            "scheduleLateToleranceMinutes":  20,
+                                            "scheduleLookaheadMinutes":  30
                                         }
                   },
     "gps":  {
