@@ -24,14 +24,10 @@ export async function registerAuthModule(
           role: user.role
         }))
       : [];
-  const store: AuthStore = new PostgresAuthStore(config.runtime.database.url);
+  const store: AuthStore = new PostgresAuthStore(app.db);
 
   await store.init();
   await store.upsertBootstrapUsers(bootstrapUsers);
-
-  app.addHook("onClose", async () => {
-    await store.close();
-  });
 
   async function authenticateRequest(
     request: FastifyRequest,
@@ -102,6 +98,9 @@ export async function registerAuthModule(
 
     return authUser;
   }
+
+  app.decorate("authenticateRequest", authenticateRequest);
+  app.decorate("requirePermission", requirePermission);
 
   app.get("/api/auth/metadata", async () => ({
     bootstrapPasswordHint:

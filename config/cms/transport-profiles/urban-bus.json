@@ -1,26 +1,28 @@
-{
-  "transport": {
-    "mode": "bus",
-    "serviceArea": "urban-grid",
-    "routeStrategy": {
-      "type": "gtfs-trip-headsign",
-      "fallbackDestination": "City Depot",
-      "preferRealtimeTripUpdates": true
-    }
-  },
-  "gps": {
-    "provider": "traccar",
-    "sourceType": "http-poll",
-    "endpoint": "https://tracking.example.invalid/vehicles",
-    "pollIntervalMs": 4000,
-    "freshnessThresholdSeconds": 25,
-    "vehicleIdField": "vehicleId",
-    "simulate": false
-  },
-  "gtfs": {
-    "enabled": true,
-    "agencyId": "demo-city-bus",
-    "timezone": "Europe/Kiev",
-    "staticFeedUrl": "https://feeds.example.invalid/demo-city/gtfs.zip"
-  }
+﻿{
+    "transport":  {
+                      "mode":  "bus",
+                      "serviceArea":  "urban-grid",
+                      "routeStrategy":  {
+                                            "type":  "gtfs-trip-headsign",
+                                            "fallbackDestination":  "City Depot",
+                                            "preferRealtimeTripUpdates":  true
+                                        }
+                  },
+    "gps":  {
+                "provider":  "traccar",
+                "sourceType":  "http-poll",
+                "endpoint":  "https://tracking.example.invalid/vehicles",
+                "pollIntervalMs":  4000,
+                "freshnessThresholdSeconds":  25,
+                "vehicleIdField":  "vehicleId",
+                "simulate":  false,
+                "offlineThresholdSeconds":  75,
+                "movementThresholdKph":  4
+            },
+    "gtfs":  {
+                 "enabled":  true,
+                 "agencyId":  "demo-city-bus",
+                 "timezone":  "Europe/Kiev",
+                 "staticFeedUrl":  "https://feeds.example.invalid/demo-city/gtfs.zip"
+             }
 }

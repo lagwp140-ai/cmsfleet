@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+﻿import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import Ajv from "ajv";
@@ -213,6 +213,14 @@ function validateResolvedConfig(config: CmsConfig): void {
   const isProduction = config.selection.environment === "production";
   const sessionSecret = config.auth.session.secret.trim();
 
+  if (config.gps.offlineThresholdSeconds <= config.gps.freshnessThresholdSeconds) {
+    details.push("/gps/offlineThresholdSeconds: must be greater than freshnessThresholdSeconds.");
+  }
+
+  if (config.gps.movementThresholdKph <= 0) {
+    details.push("/gps/movementThresholdKph: must be greater than 0.");
+  }
+
   if (config.runtime.api.corsOrigins.length === 0) {
     details.push("/runtime/api/corsOrigins: at least one allowed origin is required.");
   }
@@ -290,4 +298,8 @@ function cloneValue<T>(value: T): T {
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+
+
+
 

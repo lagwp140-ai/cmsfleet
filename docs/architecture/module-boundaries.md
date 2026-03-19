@@ -3,7 +3,7 @@
 ## Monorepo Boundaries
 
 - `frontend/*` may depend on browser-safe packages and backend contracts, but never on database code.
-- `backend/api` owns public HTTP contracts, auth, validation, and persistence orchestration.
+- `backend/api` owns public HTTP contracts, auth, validation, persistence orchestration, and the canonical SQL migration set under `backend/api/db`.
 - `backend/config-runtime` owns runtime configuration loading, deep merging, and schema validation for Node services.
 - `services/*` may reuse backend runtime libraries, but should not expose user-facing APIs by default.
 - `java-services/*` are isolated runtimes with their own build lifecycle and explicit integration contracts.

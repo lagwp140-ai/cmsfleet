@@ -98,6 +98,8 @@ export interface GpsConfig {
   endpoint: string;
   pollIntervalMs: number;
   freshnessThresholdSeconds: number;
+  offlineThresholdSeconds: number;
+  movementThresholdKph: number;
   vehicleIdField: string;
   simulate: boolean;
 }
@@ -180,3 +182,6 @@ export interface LoadCmsConfigOptions {
   cwd?: string;
   rawEnv?: NodeJS.ProcessEnv;
 }
+
+
+

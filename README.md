@@ -1,4 +1,4 @@
-# cmsfleet
+﻿# cmsfleet
 
 Production-oriented monorepo skeleton for a bus CMS platform.
 
@@ -45,6 +45,7 @@ The repository is organized to keep product-facing concerns, background processi
 - Backend API: Node.js + TypeScript + Fastify
 - Frontend: React + Vite + TypeScript
 - Primary database: PostgreSQL
+- Database migrations: ordered SQL files under [`backend/api/db/migrations`](/c:/Projects/cmsfleet/backend/api/db/migrations)
 - Background jobs: Node.js worker services
 - Runtime configuration: JSON profiles + environment overrides + JSON Schema validation
 - Heavy transit processing: Java services when needed
@@ -73,14 +74,38 @@ The API now ships with a configuration-driven authentication boundary for the ad
 - PostgreSQL-backed session state and audit events for sign-in, sign-out, failed login, and password changes
 - local-only bootstrap users for development, disabled by policy outside `local`
 
+## Vehicle and Device Management
+
+The first fleet-management slice is now live across the API, database, and admin UI:
+
+- CRUD endpoints for vehicles under [`backend/api/src/modules/vehicles`](/c:/Projects/cmsfleet/backend/api/src/modules/vehicles/module.ts)
+- config-synced device and display profile catalogs sourced from [`config/cms`](/c:/Projects/cmsfleet/config/cms/README.md)
+- transport profile assignment without changing core code per deployment
+- operational status plus separate administrative enable and disable control
+- manual route override support for dispatch-driven exceptions
+- a dedicated vehicle registry screen in [`frontend/web/src/pages/VehiclesPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/VehiclesPage.tsx)
+
+## GPS Ingestion and Telemetry
+
+The platform now includes a real-time GPS ingestion path for onboard modules:
+
+- HTTP JSON ingestion at `POST /api/ingest/gps/http`
+- payload validation and normalization of coordinates, timestamps, heading, and speed
+- raw event persistence in `telemetry.gps_messages`, including rejected and duplicate messages
+- hot-path coordinate updates in `telemetry.vehicle_positions`
+- derived operational state in `telemetry.vehicle_operational_states` for last seen, connection health, movement state, speed, heading, and future enrichments
+- config-driven online, stale, offline, and movement thresholds using `freshnessThresholdSeconds`, `offlineThresholdSeconds`, and `movementThresholdKph`
+- admin visibility through [`frontend/web/src/pages/GpsPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/GpsPage.tsx) and the architecture note in [`docs/architecture/gps-ingestion.md`](/c:/Projects/cmsfleet/docs/architecture/gps-ingestion.md)
+
 ## Getting Started
 
 1. Install Node.js 22.x, npm 10.x, PostgreSQL 16+, and Java 21.
 2. Copy the root and service-level `.env.example` files into real `.env` files.
 3. Start PostgreSQL locally or via [`deploy/docker-compose.dev.yml`](/c:/Projects/cmsfleet/deploy/docker-compose.dev.yml).
-4. Run `npm install` from the repository root.
-5. Validate config resolution with `npm run config:validate`.
-6. Start the API with `npm run dev:api` and the frontend with `npm run dev:web`.
+4. Apply the database migrations described in [`backend/api/db/README.md`](/c:/Projects/cmsfleet/backend/api/db/README.md).
+5. Run `npm install` from the repository root.
+6. Validate config resolution with `npm run config:validate`.
+7. Start the API with `npm run dev:api` and the frontend with `npm run dev:web`.
 
 ## Working Agreements
 
@@ -92,8 +117,10 @@ The API now ships with a configuration-driven authentication boundary for the ad
 
 ## Next Implementation Steps
 
-- Add fleet, routes, signage content, and user-management modules on top of the auth boundary.
-- Replace boot-time table creation with a formal migration and seed pipeline.
-- Surface selected branding and feature flags to the frontend shell beyond the admin screen.
-- Add CI to run config validation, lint, typecheck, unit tests, and container validation.
+- Migrate the auth persistence layer from boot-time tables to the normalized `auth` schema.
+- Connect mutation actor tracking to canonical auth users so fleet and config changes can record foreign-key-safe actor IDs.
+- Expand GPS transport adapters from HTTP JSON into TCP gateway or MQTT connectors while keeping the shared service layer intact.
+- Expand canonical-schema repositories into routes, GTFS jobs, display publishing, and richer telemetry workflows.
+- Add CI to run config validation, lint, typecheck, unit tests, and migration validation.
 - Define the first GTFS import contract before building the Java service internals.
+

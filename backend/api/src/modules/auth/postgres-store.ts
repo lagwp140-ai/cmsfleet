@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Pool } from "pg";
+import type { Pool } from "pg";
 
 import type { AuditEvent, StoredSession, StoredUser } from "./types.js";
 import type { AuditInput, AuthStore, DeleteSessionsOptions, SessionInput } from "./store.js";
@@ -93,13 +93,9 @@ export class PostgresAuthStore implements AuthStore {
   private readonly auditLimit: number;
   private readonly pool: Pool;
 
-  constructor(databaseUrl: string, auditLimit = 250) {
+  constructor(pool: Pool, auditLimit = 250) {
     this.auditLimit = auditLimit;
-    this.pool = new Pool({
-      connectionString: databaseUrl,
-      max: 10,
-      idleTimeoutMillis: 30_000
-    });
+    this.pool = pool;
   }
 
   async init(): Promise<void> {
@@ -111,7 +107,7 @@ export class PostgresAuthStore implements AuthStore {
   }
 
   async close(): Promise<void> {
-    await this.pool.end();
+    return;
   }
 
   async upsertBootstrapUsers(users: StoredUser[]): Promise<void> {

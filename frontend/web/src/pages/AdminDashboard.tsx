@@ -1,377 +1,172 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { adminSections, canAccessSection, countEnabledFlags, formatConsoleTime } from "../admin/console";
+import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
-import { ApiError, changePassword, fetchAdminDashboard, fetchAuditEvents } from "../auth/authClient";
-import type { AdminDashboardResponse, AuditEvent } from "../auth/types";
+import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
 
 export function AdminDashboard() {
-  const navigate = useNavigate();
-  const { logout, user } = useAuth();
-  const [dashboard, setDashboard] = useState<AdminDashboardResponse | null>(null);
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [nextPassword, setNextPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function loadData() {
-      try {
-        const dashboardResponse = await fetchAdminDashboard();
-        const auditResponse = user?.permissions.includes("audit:read") ? await fetchAuditEvents(20) : [];
-
-        if (!isCancelled) {
-          setDashboard(dashboardResponse);
-          setAuditEvents(auditResponse);
-        }
-      } catch (loadError) {
-        if (loadError instanceof ApiError && loadError.status === 401) {
-          await logout();
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        if (!isCancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load admin dashboard.");
-        }
-      }
-    }
-
-    void loadData();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [logout, navigate, user?.permissions]);
-
-  async function handleLogout() {
-    await logout();
-    navigate("/login", { replace: true });
-  }
-
-  async function handlePasswordChange(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPasswordMessage(null);
-    setIsSubmittingPassword(true);
-
-    try {
-      await changePassword(currentPassword, nextPassword);
-      setCurrentPassword("");
-      setNextPassword("");
-      setPasswordMessage("Password updated and active sessions were rotated.");
-    } catch (changeError) {
-      if (changeError instanceof ApiError && changeError.status === 401) {
-        await logout();
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      setPasswordMessage(changeError instanceof Error ? changeError.message : "Unable to change password.");
-    } finally {
-      setIsSubmittingPassword(false);
-    }
-  }
+  const { auditEvents, dashboard, lastUpdatedAt, refreshConsole } = useAdminConsole();
+  const { user } = useAuth();
+  const locale = dashboard?.tenant.locale;
+  const enabledFlags = countEnabledFlags(dashboard?.featureFlags);
+  const accessibleModules = adminSections.filter((section) => canAccessSection(user?.permissions ?? [], section)).length;
+  const restrictedModules = adminSections.length - accessibleModules;
+  const auditAllowed = user?.permissions.includes("audit:read") ?? false;
 
   return (
-    <main style={pageStyle}>
-      <header style={headerStyle}>
-        <div>
-          <p style={eyebrowStyle}>Protected Admin Route</p>
-          <h1 style={titleStyle}>Operations and access control</h1>
-          <p style={copyStyle}>
-            Signed in as <strong>{user?.displayName}</strong> with the <strong>{user?.role}</strong> role.
-          </p>
-        </div>
-        <button onClick={handleLogout} style={logoutButtonStyle} type="button">
-          Sign out
-        </button>
-      </header>
+    <div className="page-stack">
+      <SectionHeader
+        actions={
+          <button className="action-button action-button--secondary" onClick={() => void refreshConsole()} type="button">
+            Refresh dashboard
+          </button>
+        }
+        description="A transport-control shell tuned for route data, device posture, and field operations instead of generic back-office reporting."
+        eyebrow="Control Surface"
+        title="Dashboard"
+      />
 
-      {error ? <p style={errorStyle}>{error}</p> : null}
-
-      <section style={gridStyle}>
-        <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Role snapshot</h2>
-          <p style={mutedStyle}>{dashboard?.auth.roleLabel ?? "Loading role..."}</p>
-          <div style={pillRowStyle}>
-            {(user?.permissions ?? []).map((permission) => (
-              <span key={permission} style={pillStyle}>{permission}</span>
-            ))}
-          </div>
-        </article>
-
-        <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Tenant scope</h2>
-          <p style={statStyle}>{dashboard?.tenant.displayName ?? "Loading tenant..."}</p>
-          <p style={mutedStyle}>{dashboard?.tenant.id}</p>
-          {dashboard?.bootstrapUsersEnabled ? (
-            <p style={hintStyle}>
-              Bootstrap users are enabled for this environment. Default local password: <strong>{dashboard.bootstrapPasswordHint}</strong>
-            </p>
-          ) : null}
-        </article>
-
-        <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Feature flags</h2>
-          <div style={featureListStyle}>
-            {Object.entries(dashboard?.featureFlags ?? {}).map(([flag, enabled]) => (
-              <div key={flag} style={featureRowStyle}>
-                <span>{flag}</span>
-                <strong style={{ color: enabled ? "#0b7a43" : "#8a2332" }}>{enabled ? "on" : "off"}</strong>
-              </div>
-            ))}
-          </div>
-        </article>
+      <section className="metric-grid">
+        <MetricCard
+          detail="The RBAC layer currently mapped onto the signed-in operator."
+          label="Access profile"
+          tone="accent"
+          value={dashboard?.auth.roleLabel ?? user?.role ?? "viewer"}
+        />
+        <MetricCard
+          detail="Feature flags currently enabled for this transport deployment."
+          label="Enabled flags"
+          tone="good"
+          value={String(enabledFlags).padStart(2, "0")}
+        />
+        <MetricCard
+          detail="Modules visible to your role in the current shell."
+          label="Reachable modules"
+          tone="good"
+          value={`${accessibleModules}/${adminSections.length}`}
+        />
+        <MetricCard
+          detail={`Last control-plane sync rendered using ${locale ?? "browser"} locale preferences.`}
+          label="Last sync"
+          tone="neutral"
+          value={formatConsoleTime(lastUpdatedAt, locale)}
+        />
       </section>
 
-      <section style={secondaryGridStyle}>
-        <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Password change</h2>
-          <form onSubmit={handlePasswordChange} style={formStyle}>
-            <label style={labelStyle}>
-              Current password
-              <input
-                autoComplete="current-password"
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                style={inputStyle}
-                type="password"
-                value={currentPassword}
-              />
-            </label>
-            <label style={labelStyle}>
-              New password
-              <input
-                autoComplete="new-password"
-                onChange={(event) => setNextPassword(event.target.value)}
-                style={inputStyle}
-                type="password"
-                value={nextPassword}
-              />
-            </label>
-            <button disabled={isSubmittingPassword} style={primaryButtonStyle} type="submit">
-              {isSubmittingPassword ? "Updating..." : "Change password"}
-            </button>
-          </form>
-          {passwordMessage ? <p style={mutedStyle}>{passwordMessage}</p> : null}
-        </article>
+      <section className="panel-grid panel-grid--two">
+        <Panel description="Operational modules exposed by the current role and shell layout." title="Module lanes">
+          <div className="detail-list">
+            {adminSections.map((section) => {
+              const accessible = canAccessSection(user?.permissions ?? [], section);
 
-        <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Audit activity</h2>
-          {user?.permissions.includes("audit:read") ? (
-            <div style={auditListStyle}>
-              {auditEvents.map((event) => (
-                <article key={event.id} style={auditItemStyle}>
-                  <div style={auditHeaderStyle}>
-                    <strong>{event.type}</strong>
-                    <span>{new Date(event.occurredAt).toLocaleString()}</span>
+              return (
+                <div className="detail-row" key={section.key}>
+                  <div>
+                    <div className="detail-row__label">{section.label}</div>
+                    <div className="detail-row__meta">{section.description}</div>
                   </div>
-                  <p style={auditBodyStyle}>{event.email ?? event.userId ?? "system"}</p>
-                  <p style={auditMetaStyle}>
-                    {event.success ? "success" : "failure"}
-                    {event.reason ? ` • ${event.reason}` : ""}
-                  </p>
+                  <span className={`tone-pill tone-pill--${accessible ? "good" : "warn"}`}>
+                    {accessible ? "Visible" : "Restricted"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+
+        <Panel description="Quick transport-operational posture for the shared CMS core." title="Transport control surface">
+          <div className="detail-list">
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Vehicles and devices</div>
+                <div className="detail-row__meta">Onboard hardware and field readiness are treated as first-class operational data.</div>
+              </div>
+              <span className="tone-pill tone-pill--good">Ready</span>
+            </div>
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">GPS and routes</div>
+                <div className="detail-row__meta">AVL freshness and route strategy stay visible before content is published downstream.</div>
+              </div>
+              <span className="tone-pill tone-pill--accent">Tracked</span>
+            </div>
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Displays and GTFS</div>
+                <div className="detail-row__meta">Destination rendering and schedule inputs stay configuration-led for multi-tenant reuse.</div>
+              </div>
+              <span className="tone-pill tone-pill--good">Profile-led</span>
+            </div>
+          </div>
+        </Panel>
+      </section>
+
+      {!auditAllowed ? (
+        <Notice
+          body={`Your ${user?.role ?? "viewer"} role can open the dashboard, but audit event detail remains locked until the audit:read permission is granted.`}
+          title="Audit stream restricted"
+          tone="warn"
+        />
+      ) : null}
+
+      <section className="panel-grid panel-grid--two">
+        <Panel description="Most recent authentication and session-related events from the backend audit trail." title="Recent auth activity">
+          {auditAllowed ? (
+            <div className="event-list">
+              {auditEvents.slice(0, 6).map((event) => (
+                <article className="event-item" key={event.id}>
+                  <div className="event-item__header">
+                    <strong>{event.type}</strong>
+                    <span>{new Date(event.occurredAt).toLocaleString(locale ?? undefined)}</span>
+                  </div>
+                  <div className="event-item__body">{event.email ?? event.userId ?? "system"}</div>
+                  <div className="event-item__meta">
+                    <span className={`tone-pill tone-pill--${event.success ? "good" : "critical"}`}>
+                      {event.success ? "success" : "failure"}
+                    </span>
+                    {event.reason ? <span>{event.reason}</span> : null}
+                  </div>
                 </article>
               ))}
-              {auditEvents.length === 0 ? <p style={mutedStyle}>No audit events yet.</p> : null}
+              {auditEvents.length === 0 ? <div className="empty-state">No audit events recorded in this session window yet.</div> : null}
             </div>
           ) : (
-            <p style={mutedStyle}>Your role does not include audit log access.</p>
+            <div className="empty-state">Audit visibility is restricted for the current role.</div>
           )}
-        </article>
+        </Panel>
+
+        <Panel description="Tenant-bound system context resolved from the configuration-first runtime." title="Tenant profile">
+          <div className="detail-list">
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Tenant</div>
+                <div className="detail-row__meta">Resolved deployment identity</div>
+              </div>
+              <span className="tone-pill tone-pill--neutral">{dashboard?.tenant.displayName ?? "Shared CMS Core"}</span>
+            </div>
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Locale and timezone</div>
+                <div className="detail-row__meta">Formatting posture for operators and logs</div>
+              </div>
+              <span className="tone-pill tone-pill--accent">{dashboard ? `${dashboard.tenant.locale} / ${dashboard.tenant.timezone}` : "Pending"}</span>
+            </div>
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Password policy</div>
+                <div className="detail-row__meta">Minimum credential length for self-service updates</div>
+              </div>
+              <span className="tone-pill tone-pill--good">{dashboard?.auth.passwordMinLength ?? 12} chars</span>
+            </div>
+            <div className="detail-row">
+              <div>
+                <div className="detail-row__label">Restricted modules</div>
+                <div className="detail-row__meta">Areas currently outside your role scope</div>
+              </div>
+              <span className="tone-pill tone-pill--warn">{restrictedModules}</span>
+            </div>
+          </div>
+        </Panel>
       </section>
-    </main>
+    </div>
   );
 }
-
-const pageStyle = {
-  background: "linear-gradient(180deg, #f7fbff 0%, #eff4f9 100%)",
-  color: "#112538",
-  fontFamily: '"Trebuchet MS", "Aptos", sans-serif',
-  minHeight: "100vh",
-  padding: "24px"
-} as const;
-
-const headerStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "18px",
-  justifyContent: "space-between",
-  margin: "0 auto 24px",
-  maxWidth: "1180px"
-} as const;
-
-const eyebrowStyle = {
-  color: "#0f5fa8",
-  fontSize: "0.78rem",
-  letterSpacing: "0.15em",
-  marginBottom: "10px",
-  textTransform: "uppercase"
-} as const;
-
-const titleStyle = {
-  fontSize: "clamp(2rem, 4vw, 3.4rem)",
-  margin: 0
-} as const;
-
-const copyStyle = {
-  color: "#506477",
-  marginTop: "10px"
-} as const;
-
-const gridStyle = {
-  display: "grid",
-  gap: "18px",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  margin: "0 auto 18px",
-  maxWidth: "1180px"
-} as const;
-
-const secondaryGridStyle = {
-  display: "grid",
-  gap: "18px",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-  margin: "0 auto",
-  maxWidth: "1180px"
-} as const;
-
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #d5e0ea",
-  borderRadius: "22px",
-  boxShadow: "0 18px 45px rgba(17, 37, 56, 0.08)",
-  padding: "24px"
-} as const;
-
-const cardTitleStyle = {
-  fontSize: "1.2rem",
-  marginBottom: "14px"
-} as const;
-
-const statStyle = {
-  fontSize: "1.4rem",
-  fontWeight: 700,
-  marginBottom: "4px"
-} as const;
-
-const mutedStyle = {
-  color: "#5c7084",
-  lineHeight: 1.7,
-  margin: 0
-} as const;
-
-const hintStyle = {
-  background: "#eef7ff",
-  borderRadius: "16px",
-  color: "#27455e",
-  marginTop: "16px",
-  padding: "14px"
-} as const;
-
-const pillRowStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px"
-} as const;
-
-const pillStyle = {
-  background: "#edf4fb",
-  borderRadius: "999px",
-  color: "#1f4768",
-  fontSize: "0.84rem",
-  padding: "8px 12px"
-} as const;
-
-const featureListStyle = {
-  display: "grid",
-  gap: "12px"
-} as const;
-
-const featureRowStyle = {
-  alignItems: "center",
-  display: "flex",
-  justifyContent: "space-between"
-} as const;
-
-const formStyle = {
-  display: "grid",
-  gap: "14px"
-} as const;
-
-const labelStyle = {
-  color: "#29475f",
-  display: "grid",
-  gap: "8px"
-} as const;
-
-const inputStyle = {
-  background: "#f6f9fc",
-  border: "1px solid #d4dde7",
-  borderRadius: "14px",
-  fontSize: "1rem",
-  padding: "12px 14px"
-} as const;
-
-const primaryButtonStyle = {
-  background: "linear-gradient(135deg, #0f5fa8 0%, #1f8ce0 100%)",
-  border: 0,
-  borderRadius: "14px",
-  color: "#ffffff",
-  cursor: "pointer",
-  fontWeight: 700,
-  padding: "12px 16px"
-} as const;
-
-const logoutButtonStyle = {
-  background: "#10243a",
-  border: 0,
-  borderRadius: "14px",
-  color: "#ffffff",
-  cursor: "pointer",
-  fontWeight: 700,
-  padding: "12px 18px"
-} as const;
-
-const auditListStyle = {
-  display: "grid",
-  gap: "12px"
-} as const;
-
-const auditItemStyle = {
-  background: "#f5f8fb",
-  borderRadius: "16px",
-  padding: "14px"
-} as const;
-
-const auditHeaderStyle = {
-  alignItems: "center",
-  color: "#203b54",
-  display: "flex",
-  fontSize: "0.88rem",
-  justifyContent: "space-between",
-  marginBottom: "6px"
-} as const;
-
-const auditBodyStyle = {
-  margin: 0
-} as const;
-
-const auditMetaStyle = {
-  color: "#617789",
-  fontSize: "0.9rem",
-  marginTop: "6px"
-} as const;
-
-const errorStyle = {
-  background: "#fff1f1",
-  border: "1px solid #ebb7b7",
-  borderRadius: "16px",
-  color: "#8b2630",
-  margin: "0 auto 18px",
-  maxWidth: "1180px",
-  padding: "14px 16px"
-} as const;

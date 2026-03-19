@@ -2,11 +2,16 @@
 
 Create one folder per domain under this directory.
 
-Suggested examples for the first wave of work:
+Current modules:
 
 - `auth`
-- `fleet`
+- `gps`
+- `vehicles`
+
+Suggested next domains:
+
 - `routes`
 - `stops`
 - `signage-content`
 - `publish-jobs`
+- `telemetry`
