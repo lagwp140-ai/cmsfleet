@@ -20,7 +20,7 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
     connectionString: config.runtime.database.url
   });
 
-  db.on("error", (error) => {
+  db.on("error", (error: Error) => {
     app.log.error({ err: error }, "PostgreSQL pool error");
   });
 

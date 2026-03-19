@@ -1,11 +1,14 @@
-﻿import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
+import AjvImport, { type ErrorObject } from "ajv";
+import addFormatsImport from "ajv-formats";
 
 import { readLoaderEnvironment } from "./env.js";
 import type { CmsConfig, ConfigSelection, LoadedCmsConfig, LoadCmsConfigOptions } from "./types.js";
+
+const Ajv = AjvImport as unknown as typeof import("ajv").default;
+const addFormats = addFormatsImport as unknown as typeof import("ajv-formats").default;
 
 const PROFILE_DIRECTORY_MAP = {
   deviceProfile: "device-profiles",
@@ -69,7 +72,7 @@ export function loadCmsConfig(options: LoadCmsConfigOptions = {}): LoadedCmsConf
 
   validateConfig(mergedConfig, join(configDirectory, "schemas", "platform-config.schema.json"));
 
-  const validatedConfig = mergedConfig as CmsConfig;
+  const validatedConfig = mergedConfig as unknown as CmsConfig;
   validateResolvedConfig(validatedConfig);
 
   return {
@@ -192,7 +195,7 @@ function validateConfig(config: Record<string, unknown>, schemaPath: string): vo
   const validate = ajv.compile(schema);
 
   if (!validate(config)) {
-    const details = (validate.errors ?? []).map((error) => {
+    const details = (validate.errors ?? []).map((error: ErrorObject) => {
       const instancePath = error.instancePath === "" ? "/" : error.instancePath;
       const params = error.params as { additionalProperty?: string };
       const extra =
@@ -298,8 +301,3 @@ function cloneValue<T>(value: T): T {
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-
-
-
-

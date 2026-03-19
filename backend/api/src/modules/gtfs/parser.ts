@@ -437,7 +437,20 @@ function parseGtfsTime(value: string | undefined): number | null {
     return null;
   }
 
-  const [hours, minutes, seconds] = trimmed.split(":").map((segment) => Number(segment));
+  const parts = trimmed.split(":");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [hoursRaw, minutesRaw, secondsRaw] = parts;
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  const seconds = Number(secondsRaw);
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || !Number.isInteger(seconds)) {
+    return null;
+  }
 
   if (minutes > 59 || seconds > 59) {
     return null;
@@ -488,3 +501,4 @@ async function readOptionalCsv(directoryPath: string, fileName: string): Promise
 function stripBom(value: string): string {
   return value.charCodeAt(0) === 0xfeff ? value.slice(1) : value;
 }
+

@@ -23,6 +23,12 @@ interface ResolvedVehicle {
   record: VehicleRouteResolutionRecord;
 }
 
+interface LocalTimeParts {
+  dateString: string;
+  secondsOfDay: number;
+  weekdayIndex: number;
+}
+
 export class RouteResolutionService {
   constructor(
     private readonly config: CmsConfig,
@@ -193,7 +199,7 @@ export class RouteResolutionService {
 
   private async findBestScheduleCandidate(
     routeId: string,
-    currentLocal: { dateString: string; secondsOfDay: number; weekdayIndex: number },
+    currentLocal: LocalTimeParts,
     routeStrategy: CmsConfig["transport"]["routeStrategy"]
   ): Promise<ResolvedScheduleCandidate | null> {
     const earlyToleranceSeconds = routeStrategy.scheduleEarlyToleranceMinutes * 60;
@@ -231,8 +237,8 @@ export class RouteResolutionService {
 }
 
 function addDays(dateString: string, days: number): string {
-  const [year, month, day] = dateString.split("-").map((segment) => Number(segment));
-  const date = new Date(Date.UTC(year, month - 1, day + days));
+  const dateParts = parseDateStringParts(dateString);
+  const date = new Date(Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day + days));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
@@ -393,7 +399,7 @@ function formatGtfsTime(totalSeconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function getTimeZoneParts(referenceTime: string, timeZone: string): { dateString: string; secondsOfDay: number; weekdayIndex: number } {
+function getTimeZoneParts(referenceTime: string, timeZone: string): LocalTimeParts {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     hour: "2-digit",
@@ -406,15 +412,39 @@ function getTimeZoneParts(referenceTime: string, timeZone: string): { dateString
     year: "numeric"
   });
   const parts = formatter.formatToParts(new Date(referenceTime));
-  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  const dateString = `${lookup.year}-${lookup.month}-${lookup.day}`;
-  const secondsOfDay = (Number(lookup.hour) * 3600) + (Number(lookup.minute) * 60) + Number(lookup.second);
+  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value])) as Record<string, string | undefined>;
+  const year = readTimeZonePart(lookup, "year");
+  const month = readTimeZonePart(lookup, "month");
+  const day = readTimeZonePart(lookup, "day");
+  const hour = readTimeZonePart(lookup, "hour");
+  const minute = readTimeZonePart(lookup, "minute");
+  const second = readTimeZonePart(lookup, "second");
+  const weekday = readTimeZonePart(lookup, "weekday");
 
   return {
-    dateString,
-    secondsOfDay,
-    weekdayIndex: weekdayIndexFromShortName(lookup.weekday)
+    dateString: `${year}-${month}-${day}`,
+    secondsOfDay: (Number(hour) * 3600) + (Number(minute) * 60) + Number(second),
+    weekdayIndex: weekdayIndexFromShortName(weekday)
   };
+}
+
+function parseDateStringParts(dateString: string): { day: number; month: number; year: number } {
+  const parts = dateString.split("-");
+
+  if (parts.length !== 3) {
+    throw new Error(`Invalid date string for route resolution: ${dateString}`);
+  }
+
+  const [yearRaw, monthRaw, dayRaw] = parts;
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    throw new Error(`Invalid date string for route resolution: ${dateString}`);
+  }
+
+  return { day, month, year };
 }
 
 function pickBestCandidate(candidates: Array<ResolvedScheduleCandidate | null>): ResolvedScheduleCandidate | null {
@@ -441,6 +471,16 @@ function pickBestCandidate(candidates: Array<ResolvedScheduleCandidate | null>):
 
     return left.trip.startOffsetSeconds - right.trip.startOffsetSeconds;
   })[0] ?? null;
+}
+
+function readTimeZonePart(lookup: Record<string, string | undefined>, key: string): string {
+  const value = lookup[key];
+
+  if (!value) {
+    throw new Error(`Missing ${key} while resolving local GTFS time.`);
+  }
+
+  return value;
 }
 
 function tripStateDistance(trip: ScheduledTripCandidate, referenceSeconds: number): number {
@@ -485,8 +525,8 @@ function tripStateToRouteState(state: "active" | "completed" | "upcoming"): Rout
 }
 
 function weekdayIndexFromDateString(dateString: string): number {
-  const [year, month, day] = dateString.split("-").map((segment) => Number(segment));
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const dateParts = parseDateStringParts(dateString);
+  return new Date(Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day)).getUTCDay();
 }
 
 function weekdayIndexFromShortName(value: string): number {

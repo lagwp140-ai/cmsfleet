@@ -322,6 +322,12 @@ function splitCsv(value: string | undefined): string[] {
 }
 
 function setPath(target: Record<string, unknown>, path: string[], value: unknown): void {
+  const leaf = path.at(-1);
+
+  if (!leaf) {
+    return;
+  }
+
   let cursor: Record<string, unknown> = target;
 
   for (const segment of path.slice(0, -1)) {
@@ -334,7 +340,7 @@ function setPath(target: Record<string, unknown>, path: string[], value: unknown
     cursor = cursor[segment] as Record<string, unknown>;
   }
 
-  cursor[path[path.length - 1]] = value;
+  cursor[leaf] = value;
 }
 
 function cloneValue<T>(value: T): T {

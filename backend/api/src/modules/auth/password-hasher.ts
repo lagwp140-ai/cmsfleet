@@ -27,6 +27,10 @@ export async function verifyPassword(plainText: string, storedHash: string): Pro
     return false;
   }
 
+  if (!saltBase64 || !hashBase64) {
+    return false;
+  }
+
   const iterations = Number(iterationsRaw);
 
   if (!Number.isInteger(iterations) || iterations <= 0) {
