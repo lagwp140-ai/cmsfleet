@@ -9,40 +9,56 @@ export function createBootstrapUsers(): StoredUser[] {
 
   return [
     {
-      id: "user-super-admin",
-      email: "admin@demo-city.local",
+      createdAt: now,
       displayName: "Platform Super Admin",
+      email: "admin@demo-city.local",
+      id: "user-super-admin",
+      mustChangePassword: false,
+      passwordChangedAt: now,
+      passwordHash:
+        "pbkdf2_sha512$210000$yuMlyJuMk7RI5VZ7feVwrg==$LKxvw27EjtZTWXW6oZxtrK2+EENKjFIqyUXrIROYt6UlCB3nxfEcqJDQlWrg411vQkylpBAD0niRn4SHJeQiaQ==",
       role: "super_admin",
-      passwordChangedAt: now,
-      passwordHash:
-        "pbkdf2_sha512$210000$yuMlyJuMk7RI5VZ7feVwrg==$LKxvw27EjtZTWXW6oZxtrK2+EENKjFIqyUXrIROYt6UlCB3nxfEcqJDQlWrg411vQkylpBAD0niRn4SHJeQiaQ=="
+      status: "active",
+      updatedAt: now
     },
     {
-      id: "user-dispatcher",
-      email: "dispatcher@demo-city.local",
+      createdAt: now,
       displayName: "Dispatch Desk",
+      email: "dispatcher@demo-city.local",
+      id: "user-dispatcher",
+      mustChangePassword: false,
+      passwordChangedAt: now,
+      passwordHash:
+        "pbkdf2_sha512$210000$CHf+zHOTd8dzTA90nHDyAA==$VYZhpDXJuawe0sMdZoY2vtABIzWUjyOIKlnPtkLks/genyvfGmwcoCAkx9eKt4p+C8Fxp1yJTeY1WWuEx+tLwA==",
       role: "dispatcher",
-      passwordChangedAt: now,
-      passwordHash:
-        "pbkdf2_sha512$210000$CHf+zHOTd8dzTA90nHDyAA==$VYZhpDXJuawe0sMdZoY2vtABIzWUjyOIKlnPtkLks/genyvfGmwcoCAkx9eKt4p+C8Fxp1yJTeY1WWuEx+tLwA=="
+      status: "active",
+      updatedAt: now
     },
     {
-      id: "user-operator",
-      email: "operator@demo-city.local",
+      createdAt: now,
       displayName: "Operations Console",
-      role: "operator",
+      email: "operator@demo-city.local",
+      id: "user-operator",
+      mustChangePassword: false,
       passwordChangedAt: now,
       passwordHash:
-        "pbkdf2_sha512$210000$QrSeffdYETDDpTKKKc+PXQ==$GGSm+Vjng5mbGDrdzW1KOznaYXJv0KT1k2KUXA3avY8rkrzDipY4USgPEw1ff9SZWIVUes0FNnLKFJ7UtMbGbg=="
+        "pbkdf2_sha512$210000$QrSeffdYETDDpTKKKc+PXQ==$GGSm+Vjng5mbGDrdzW1KOznaYXJv0KT1k2KUXA3avY8rkrzDipY4USgPEw1ff9SZWIVUes0FNnLKFJ7UtMbGbg==",
+      role: "operator",
+      status: "active",
+      updatedAt: now
     },
     {
-      id: "user-viewer",
-      email: "viewer@demo-city.local",
+      createdAt: now,
       displayName: "Read-Only Viewer",
-      role: "viewer",
+      email: "viewer@demo-city.local",
+      id: "user-viewer",
+      mustChangePassword: false,
       passwordChangedAt: now,
       passwordHash:
-        "pbkdf2_sha512$210000$GDvGgrXwyYqqP8X9ZHWafA==$FmBxBORLAuEDXQbK1WwdNqbmPjZ+pPyMmdNk2GWUz3QCiAeswurEFk9GMTvw6NC8uG097Zk4cuvDQVoMBMnU1w=="
+        "pbkdf2_sha512$210000$GDvGgrXwyYqqP8X9ZHWafA==$FmBxBORLAuEDXQbK1WwdNqbmPjZ+pPyMmdNk2GWUz3QCiAeswurEFk9GMTvw6NC8uG097Zk4cuvDQVoMBMnU1w==",
+      role: "viewer",
+      status: "active",
+      updatedAt: now
     }
   ];
 }

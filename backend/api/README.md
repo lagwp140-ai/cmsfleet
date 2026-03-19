@@ -26,3 +26,6 @@ GTFS import and activation now live in [`backend/api/src/modules/gtfs`](/c:/Proj
 
 Route resolution now lives in [`backend/api/src/modules/routes`](/c:/Projects/cmsfleet/backend/api/src/modules/routes/module.ts). It evaluates manual route overrides first, enriches them with GTFS schedule context, persists one route-resolution snapshot per vehicle, and leaves a clean extension point for GPS-assisted matching later.
 
+## LED Display Domain
+
+The display abstraction now lives in [`backend/api/src/modules/displays`](/c:/Projects/cmsfleet/backend/api/src/modules/displays/module.ts). It models display modes, templates, preview rendering, structured command generation, and a queue-backed hardware adapter boundary so LED controller support can grow without coupling transport behavior to one physical protocol.

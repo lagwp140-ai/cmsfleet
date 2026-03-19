@@ -125,35 +125,61 @@ export class GtfsRepository {
     return result.rows;
   }
 
-  async listJobs(limit: number): Promise<GtfsImportJobRecord[]> {
+  async listJobs(limit: number, filters: { search?: string; status?: GtfsImportJobRecord["status"] } = {}): Promise<GtfsImportJobRecord[]> {
+    const conditions: string[] = [];
+    const values: Array<number | string> = [];
+
+    if (filters.status) {
+      values.push(filters.status);
+      conditions.push(`jobs.status = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${filters.search}%`);
+      const placeholder = `$${values.length}`;
+      conditions.push(`(
+        jobs.source_uri ILIKE ${placeholder}
+        OR COALESCE(jobs.feed_version, '') ILIKE ${placeholder}
+        OR COALESCE(jobs.error_message, '') ILIKE ${placeholder}
+        OR jobs.status ILIKE ${placeholder}
+        OR COALESCE(dataset.dataset_label, '') ILIKE ${placeholder}
+      )`);
+    }
+
+    values.push(limit);
+    const limitPlaceholder = `$${values.length}`;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
     const result = await this.pool.query<GtfsImportJobRecord>(
       `
         SELECT
-          id::text AS id,
-          requested_by_user_id::text AS "requestedByUserId",
-          source_uri AS "sourceUri",
-          source_type AS "sourceType",
-          activation_mode AS "activationMode",
-          status,
-          feed_version AS "feedVersion",
-          started_at::text AS "startedAt",
-          finished_at::text AS "finishedAt",
-          rows_processed AS "rowsProcessed",
-          routes_upserted AS "routeCount",
-          trips_upserted AS "tripCount",
-          stops_upserted AS "stopCount",
-          stop_times_upserted AS "stopTimeCount",
-          error_message AS "errorMessage",
-          summary,
-          validation_error_count AS "validationErrorCount",
-          warning_count AS "warningCount",
-          dataset_id::text AS "datasetId",
-          created_at::text AS "createdAt"
-        FROM operations.gtfs_import_jobs
-        ORDER BY created_at DESC
-        LIMIT $1
+          jobs.id::text AS id,
+          jobs.requested_by_user_id::text AS "requestedByUserId",
+          jobs.source_uri AS "sourceUri",
+          jobs.source_type AS "sourceType",
+          jobs.activation_mode AS "activationMode",
+          jobs.status,
+          jobs.feed_version AS "feedVersion",
+          jobs.started_at::text AS "startedAt",
+          jobs.finished_at::text AS "finishedAt",
+          jobs.rows_processed AS "rowsProcessed",
+          jobs.routes_upserted AS "routeCount",
+          jobs.trips_upserted AS "tripCount",
+          jobs.stops_upserted AS "stopCount",
+          jobs.stop_times_upserted AS "stopTimeCount",
+          jobs.error_message AS "errorMessage",
+          jobs.summary,
+          jobs.validation_error_count AS "validationErrorCount",
+          jobs.warning_count AS "warningCount",
+          jobs.dataset_id::text AS "datasetId",
+          jobs.created_at::text AS "createdAt"
+        FROM operations.gtfs_import_jobs jobs
+        LEFT JOIN operations.gtfs_datasets dataset ON dataset.id = jobs.dataset_id
+        ${whereClause}
+        ORDER BY jobs.created_at DESC
+        LIMIT ${limitPlaceholder}
       `,
-      [limit]
+      values
     );
 
     return result.rows;
@@ -793,3 +819,4 @@ const DATASET_SELECT_SQL = `
     GROUP BY trips.dataset_id
   ) stop_time_counts ON stop_time_counts.dataset_id = d.id
 `;
+

@@ -18,7 +18,7 @@ This folder contains deployment-specific runtime configuration for the CMS core.
 - `transport-profiles/`: transport mode, route strategy, GTFS, and GPS defaults
 - `vehicle-profiles/`: vehicle class and capacity settings
 - `device-profiles/`: onboard compute and connectivity traits
-- `display-profiles/`: LED controller settings and mapping templates
+- `display-profiles/`: LED controller settings, abstract display modes, rendering templates, preview samples, and future driver capabilities
 
 ## Environment Variable Support
 

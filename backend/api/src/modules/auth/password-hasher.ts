@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import type { CmsConfig } from "@cmsfleet/config-runtime";
 
 const pbkdf2 = promisify(pbkdf2Callback);
+const TEMPORARY_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*-_";
 
 export async function hashPassword(
   plainText: string,
@@ -18,6 +19,19 @@ export async function hashPassword(
     salt.toString("base64"),
     derivedKey.toString("base64")
   ].join("$");
+}
+
+export function generateTemporaryPassword(minLength: number): string {
+  const targetLength = Math.max(16, minLength);
+  const randomBuffer = randomBytes(targetLength);
+  let password = "";
+
+  for (let index = 0; index < targetLength; index += 1) {
+    const alphabetIndex = randomBuffer[index] ?? 0;
+    password += TEMPORARY_PASSWORD_ALPHABET[alphabetIndex % TEMPORARY_PASSWORD_ALPHABET.length] ?? "A";
+  }
+
+  return password;
 }
 
 export async function verifyPassword(plainText: string, storedHash: string): Promise<boolean> {

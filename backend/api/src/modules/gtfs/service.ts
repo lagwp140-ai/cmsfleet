@@ -12,6 +12,7 @@ import { parseGtfsDirectory } from "./parser.js";
 import { GtfsRepository } from "./repository.js";
 import type {
   GtfsImportErrorRecord,
+  GtfsImportJobRecord,
   GtfsImportPathInput,
   GtfsImportUploadInput,
   GtfsOverview,
@@ -51,6 +52,13 @@ export class GtfsService {
 
   async getErrors(jobId: string, limit: number): Promise<GtfsImportErrorRecord[]> {
     return this.repository.listErrors(jobId, limit);
+  }
+
+  async getLogs(
+    limit: number,
+    filters: { search?: string; status?: "queued" | "running" | "succeeded" | "failed" | "cancelled" }
+  ): Promise<GtfsImportJobRecord[]> {
+    return this.repository.listJobs(limit, filters);
   }
 
   async getOverview(limit = 20): Promise<GtfsOverview> {
@@ -365,3 +373,4 @@ async function rollbackQuietly(client: PoolClient, logger: FastifyBaseLogger): P
     logger.error({ err: error }, "Failed to roll back GTFS transaction");
   }
 }
+

@@ -4,9 +4,11 @@ import { useAuth } from "./auth/AuthProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminShell } from "./layouts/AdminShell";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { DisplaysPage } from "./pages/DisplaysPage";
 import { GpsPage } from "./pages/GpsPage";
 import { GtfsPage } from "./pages/GtfsPage";
 import { AdminLogsPage } from "./pages/AdminLogsPage";
+import { ConfigPage } from "./pages/ConfigPage";
 import { AdminModulePage } from "./pages/AdminModulePage";
 import { RoutesPage } from "./pages/RoutesPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
@@ -26,10 +28,10 @@ export function App() {
           <Route path="gps" element={<GpsPage />} />
           <Route path="routes" element={<RoutesPage />} />
           <Route path="gtfs" element={<GtfsPage />} />
-          <Route path="displays" element={<AdminModulePage moduleKey="displays" />} />
+          <Route path="displays" element={<DisplaysPage />} />
           <Route path="devices" element={<AdminModulePage moduleKey="devices" />} />
           <Route path="logs" element={<AdminLogsPage />} />
-          <Route path="config" element={<AdminModulePage moduleKey="config" />} />
+          <Route path="config" element={<ConfigPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="system" element={<AdminModulePage moduleKey="system" />} />
         </Route>

@@ -91,7 +91,13 @@ export async function syncProfileCatalogs(pool: Pool, configDirectory: string): 
         profile.destinationTemplate,
         profile.mappings,
         {
+          controllerContract: profile.controllerContract,
+          messageFormat: profile.messageFormat,
+          previewMode: {
+            enabled: profile.previewMode.enabled
+          },
           source: "config-profile",
+          supportedModes: ["route", "destination", "service_message", "emergency", "preview"],
           syncedFrom: "config/cms/display-profiles"
         }
       ]
@@ -158,3 +164,4 @@ function formatProfileLabel(profileKey: string): string {
     .map((segment) => segment.slice(0, 1).toUpperCase() + segment.slice(1))
     .join(" ");
 }
+

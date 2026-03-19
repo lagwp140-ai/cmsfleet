@@ -5,6 +5,9 @@ import { Pool } from "pg";
 import type { CmsConfig, ConfigRuntimeContext } from "@cmsfleet/config-runtime";
 
 import { registerAuthModule } from "./modules/auth/module.js";
+import { registerConfigModule } from "./modules/config/module.js";
+import { registerDiagnosticsModule } from "./modules/diagnostics/module.js";
+import { registerDisplaysModule } from "./modules/displays/module.js";
 import { registerGpsModule } from "./modules/gps/module.js";
 import { registerGtfsModule } from "./modules/gtfs/module.js";
 import { registerRoutesModule } from "./modules/routes/module.js";
@@ -37,9 +40,12 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
 
   await registerAuthModule(app, config, context);
   await registerVehiclesModule(app, config, context);
+  await registerConfigModule(app, config, context);
+  await registerDiagnosticsModule(app);
   await registerGpsModule(app, config);
   await registerGtfsModule(app, config);
   await registerRoutesModule(app, config);
+  await registerDisplaysModule(app, config);
 
   app.get("/health", async () => ({
     environment: config.selection.environment,

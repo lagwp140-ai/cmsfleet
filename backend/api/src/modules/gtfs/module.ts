@@ -22,6 +22,21 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
     }
   });
 
+  app.get("/api/admin/gtfs/logs", async (request, reply) => {
+    const authUser = await app.requirePermission(request, reply, "dispatch:manage");
+
+    if (!authUser) {
+      return;
+    }
+
+    try {
+      return {
+        jobs: await service.getLogs(readLimit(request.query), readLogFilters(request.query))
+      };
+    } catch (error) {
+      return sendGtfsError(reply, error, "Unable to load GTFS import logs.");
+    }
+  });
   app.get("/api/admin/gtfs/imports/:jobId/errors", async (request, reply) => {
     const authUser = await app.requirePermission(request, reply, "dispatch:manage");
 
@@ -131,6 +146,22 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
   });
 }
 
+function readLogFilters(query: unknown): { search?: string; status?: "queued" | "running" | "succeeded" | "failed" | "cancelled" } {
+  if (!isPlainObject(query)) {
+    return {};
+  }
+
+  const status = query.status === "queued"
+    || query.status === "running"
+    || query.status === "succeeded"
+    || query.status === "failed"
+    || query.status === "cancelled"
+    ? query.status
+    : undefined;
+  const search = typeof query.search === "string" && query.search.trim() !== "" ? query.search.trim() : undefined;
+
+  return { search, status };
+}
 function readLimit(query: unknown): number {
   if (!isPlainObject(query)) {
     return 25;
@@ -210,3 +241,5 @@ function sendGtfsError(reply: FastifyReply, error: unknown, fallbackMessage: str
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+

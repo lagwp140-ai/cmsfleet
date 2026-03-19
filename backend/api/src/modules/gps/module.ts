@@ -1,4 +1,4 @@
-﻿import type { CmsConfig } from "@cmsfleet/config-runtime";
+import type { CmsConfig } from "@cmsfleet/config-runtime";
 import type { FastifyInstance } from "fastify";
 
 import { GpsRepository } from "./repository.js";
@@ -50,13 +50,26 @@ export async function registerGpsModule(app: FastifyInstance, config: CmsConfig)
     }
 
     const limit = readLimit(request.query);
+    const filters = readMessageFilters(request.query);
 
     return {
-      messages: await service.listRecentMessages(limit)
+      messages: await service.listRecentMessages(limit, filters)
     };
   });
 }
 
+function readMessageFilters(query: unknown): { ingestStatus?: "accepted" | "duplicate" | "rejected"; search?: string } {
+  if (!isPlainObject(query)) {
+    return {};
+  }
+
+  const ingestStatus = query.ingestStatus === "accepted" || query.ingestStatus === "duplicate" || query.ingestStatus === "rejected"
+    ? query.ingestStatus
+    : undefined;
+  const search = typeof query.search === "string" && query.search.trim() !== "" ? query.search.trim() : undefined;
+
+  return { ingestStatus, search };
+}
 function readLimit(query: unknown): number {
   if (!isPlainObject(query)) {
     return 25;
@@ -74,3 +87,5 @@ function readLimit(query: unknown): number {
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+

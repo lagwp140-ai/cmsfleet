@@ -28,11 +28,25 @@ async function readPayload(response: Response): Promise<{ message?: string }> {
   }
 }
 
-export async function fetchGpsMessages(limit = 20): Promise<RecentGpsMessageRecord[]> {
-  const response = await request<{ messages: RecentGpsMessageRecord[] }>(`/api/admin/gps/messages?limit=${limit}`);
+export async function fetchGpsMessages(
+  limit = 20,
+  filters: { ingestStatus?: "accepted" | "duplicate" | "rejected"; search?: string } = {}
+): Promise<RecentGpsMessageRecord[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+
+  if (filters.ingestStatus) {
+    query.set("ingestStatus", filters.ingestStatus);
+  }
+
+  if (filters.search) {
+    query.set("search", filters.search);
+  }
+
+  const response = await request<{ messages: RecentGpsMessageRecord[] }>(`/api/admin/gps/messages?${query.toString()}`);
   return response.messages;
 }
 
 export async function fetchGpsStatus(): Promise<GpsStatusResponse> {
   return request<GpsStatusResponse>("/api/admin/gps/status");
 }
+

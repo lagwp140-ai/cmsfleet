@@ -1,11 +1,24 @@
 export type UserRole = "super_admin" | "dispatcher" | "operator" | "viewer";
+export type UserAccountStatus = "active" | "disabled";
+export type AuditEventType =
+  | "sign_in_succeeded"
+  | "sign_in_failed"
+  | "sign_out"
+  | "password_changed"
+  | "password_reset"
+  | "user_created"
+  | "user_updated"
+  | "user_role_changed"
+  | "user_status_changed";
 
 export interface SessionUser {
   displayName: string;
   email: string;
   id: string;
+  mustChangePassword: boolean;
   permissions: string[];
   role: UserRole;
+  status: UserAccountStatus;
 }
 
 export interface BootstrapUserSummary {
@@ -48,14 +61,17 @@ export interface AdminDashboardResponse {
 }
 
 export interface AuditEvent {
+  actorEmail?: string;
+  actorUserId?: string;
   email?: string;
   id: string;
   ipAddress?: string;
+  metadata?: Record<string, unknown>;
   occurredAt: string;
   reason?: string;
   role?: UserRole;
   success: boolean;
-  type: "sign_in_succeeded" | "sign_in_failed" | "sign_out" | "password_changed";
+  type: AuditEventType;
   userAgent?: string;
   userId?: string;
 }

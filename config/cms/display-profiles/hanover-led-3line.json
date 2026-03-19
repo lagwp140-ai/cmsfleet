@@ -6,10 +6,95 @@
     "brightness": 82,
     "destinationTemplate": "{routeShortName} {headsign}",
     "mappings": {
-      "front": "routeShortName:headsign",
-      "side": "routeShortName:destination:via",
-      "rear": "routeShortName",
-      "interior": "nextStop"
+      "front": "route",
+      "side": "destination",
+      "rear": "route",
+      "interior": "preview"
+    },
+    "messageFormat": {
+      "name": "3-line-led",
+      "lineCount": 3,
+      "maxCharactersPerLine": 24,
+      "encoding": "latin-1"
+    },
+    "controllerContract": {
+      "protocolFamily": "abstract-led-envelope",
+      "transport": "ethernet",
+      "supportedOperations": ["publish", "preview", "clear", "set_brightness"],
+      "supportsMultiZone": true,
+      "maxLines": 3
+    },
+    "templates": {
+      "route": {
+        "front": "{routeShortName} {headsign}",
+        "side": "{routeShortName} {destination} via {via}",
+        "rear": "{routeShortName}",
+        "interior": "Next {nextStop}"
+      },
+      "destination": {
+        "front": "{destination}",
+        "side": "{destination} via {via}",
+        "rear": "{routeShortName}",
+        "interior": "To {destination}"
+      },
+      "serviceMessage": {
+        "front": "{serviceMessage}",
+        "side": "{serviceMessage}",
+        "rear": "Info",
+        "interior": "{serviceMessage}"
+      },
+      "emergency": {
+        "front": "EMERGENCY {emergencyMessage}",
+        "side": "EMERGENCY {emergencyMessage}",
+        "rear": "EMERGENCY",
+        "interior": "EMERGENCY {emergencyMessage}"
+      },
+      "preview": {
+        "front": "Preview {routeShortName}",
+        "side": "Preview {destination}",
+        "rear": "Preview {publicNote}",
+        "interior": "Preview {nextStop}"
+      }
+    },
+    "routeDisplayMode": {
+      "lineTemplate": "{routeShortName}",
+      "destinationTemplate": "{headsign}",
+      "useRouteShortName": true,
+      "useHeadsign": true,
+      "sideViaSeparator": " via ",
+      "unknownRouteLabel": "Not In Service"
+    },
+    "destinationDisplayMode": {
+      "destinationTemplate": "{destination}",
+      "fallbackDestination": "City Depot",
+      "includeVia": true,
+      "viaSeparator": " via "
+    },
+    "serviceMessageMode": {
+      "template": "INFO {serviceMessage}",
+      "defaultDurationSeconds": 20,
+      "prefix": "INFO",
+      "allowBlink": false
+    },
+    "emergencyMode": {
+      "template": "EMERGENCY {emergencyMessage}",
+      "priority": 100,
+      "clearsStandardContent": true,
+      "requiresAcknowledgement": true
+    },
+    "previewMode": {
+      "enabled": true,
+      "sampleValues": {
+        "routeShortName": "24",
+        "routeLongName": "Central Station - Riverside",
+        "headsign": "Central Station",
+        "destination": "Central Station",
+        "via": "Market Square",
+        "serviceMessage": "Wheelchair bay occupied",
+        "emergencyMessage": "Evacuate vehicle",
+        "nextStop": "Market Square",
+        "publicNote": "Testing preview"
+      }
     }
   }
 }

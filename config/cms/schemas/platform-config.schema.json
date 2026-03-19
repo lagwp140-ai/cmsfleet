@@ -501,29 +501,37 @@
                                                            "controller",
                                                            "brightness",
                                                            "destinationTemplate",
-                                                           "mappings"
+                                                           "mappings",
+                                                           "messageFormat",
+                                                           "controllerContract",
+                                                           "templates",
+                                                           "routeDisplayMode",
+                                                           "destinationDisplayMode",
+                                                           "serviceMessageMode",
+                                                           "emergencyMode",
+                                                           "previewMode"
                                                        ],
                                           "properties":  {
                                                              "profileId":  {
-                                                                               "type":  "string",
-                                                                               "minLength":  1
+                                                                               "minLength":  1,
+                                                                               "type":  "string"
                                                                            },
                                                              "provider":  {
-                                                                              "type":  "string",
-                                                                              "minLength":  1
+                                                                              "minLength":  1,
+                                                                              "type":  "string"
                                                                           },
                                                              "controller":  {
-                                                                                "type":  "string",
-                                                                                "minLength":  1
+                                                                                "minLength":  1,
+                                                                                "type":  "string"
                                                                             },
                                                              "brightness":  {
+                                                                                "maximum":  100,
                                                                                 "type":  "integer",
-                                                                                "minimum":  0,
-                                                                                "maximum":  100
+                                                                                "minimum":  0
                                                                             },
                                                              "destinationTemplate":  {
-                                                                                         "type":  "string",
-                                                                                         "minLength":  1
+                                                                                         "minLength":  1,
+                                                                                         "type":  "string"
                                                                                      },
                                                              "mappings":  {
                                                                               "type":  "object",
@@ -536,23 +544,427 @@
                                                                                            ],
                                                                               "properties":  {
                                                                                                  "front":  {
-                                                                                                               "type":  "string",
-                                                                                                               "minLength":  1
+                                                                                                               "minLength":  1,
+                                                                                                               "type":  "string"
                                                                                                            },
                                                                                                  "side":  {
-                                                                                                              "type":  "string",
-                                                                                                              "minLength":  1
+                                                                                                              "minLength":  1,
+                                                                                                              "type":  "string"
                                                                                                           },
                                                                                                  "rear":  {
-                                                                                                              "type":  "string",
-                                                                                                              "minLength":  1
+                                                                                                              "minLength":  1,
+                                                                                                              "type":  "string"
                                                                                                           },
                                                                                                  "interior":  {
-                                                                                                                  "type":  "string",
-                                                                                                                  "minLength":  1
+                                                                                                                  "minLength":  1,
+                                                                                                                  "type":  "string"
                                                                                                               }
                                                                                              }
-                                                                          }
+                                                                          },
+                                                             "messageFormat":  {
+                                                                                   "type":  "object",
+                                                                                   "additionalProperties":  false,
+                                                                                   "required":  [
+                                                                                                    "name",
+                                                                                                    "lineCount",
+                                                                                                    "maxCharactersPerLine",
+                                                                                                    "encoding"
+                                                                                                ],
+                                                                                   "properties":  {
+                                                                                                      "name":  {
+                                                                                                                   "minLength":  1,
+                                                                                                                   "type":  "string"
+                                                                                                               },
+                                                                                                      "lineCount":  {
+                                                                                                                        "type":  "integer",
+                                                                                                                        "minimum":  1
+                                                                                                                    },
+                                                                                                      "maxCharactersPerLine":  {
+                                                                                                                                   "type":  "integer",
+                                                                                                                                   "minimum":  1
+                                                                                                                               },
+                                                                                                      "encoding":  {
+                                                                                                                       "minLength":  1,
+                                                                                                                       "type":  "string"
+                                                                                                                   }
+                                                                                                  }
+                                                                               },
+                                                             "controllerContract":  {
+                                                                                        "type":  "object",
+                                                                                        "additionalProperties":  false,
+                                                                                        "required":  [
+                                                                                                         "protocolFamily",
+                                                                                                         "transport",
+                                                                                                         "supportedOperations",
+                                                                                                         "supportsMultiZone",
+                                                                                                         "maxLines"
+                                                                                                     ],
+                                                                                        "properties":  {
+                                                                                                           "protocolFamily":  {
+                                                                                                                                  "minLength":  1,
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                           "transport":  {
+                                                                                                                             "minLength":  1,
+                                                                                                                             "type":  "string"
+                                                                                                                         },
+                                                                                                           "supportedOperations":  {
+                                                                                                                                       "minItems":  1,
+                                                                                                                                       "items":  {
+                                                                                                                                                     "type":  "string",
+                                                                                                                                                     "enum":  [
+                                                                                                                                                                  "publish",
+                                                                                                                                                                  "preview",
+                                                                                                                                                                  "clear",
+                                                                                                                                                                  "set_brightness"
+                                                                                                                                                              ]
+                                                                                                                                                 },
+                                                                                                                                       "type":  "array"
+                                                                                                                                   },
+                                                                                                           "supportsMultiZone":  {
+                                                                                                                                     "type":  "boolean"
+                                                                                                                                 },
+                                                                                                           "maxLines":  {
+                                                                                                                            "type":  "integer",
+                                                                                                                            "minimum":  1
+                                                                                                                        }
+                                                                                                       }
+                                                                                    },
+                                                             "templates":  {
+                                                                               "type":  "object",
+                                                                               "additionalProperties":  false,
+                                                                               "required":  [
+                                                                                                "route",
+                                                                                                "destination",
+                                                                                                "serviceMessage",
+                                                                                                "emergency",
+                                                                                                "preview"
+                                                                                            ],
+                                                                               "properties":  {
+                                                                                                  "route":  {
+                                                                                                                "type":  "object",
+                                                                                                                "additionalProperties":  false,
+                                                                                                                "required":  [
+                                                                                                                                 "front",
+                                                                                                                                 "side",
+                                                                                                                                 "rear",
+                                                                                                                                 "interior"
+                                                                                                                             ],
+                                                                                                                "properties":  {
+                                                                                                                                   "front":  {
+                                                                                                                                                 "minLength":  1,
+                                                                                                                                                 "type":  "string"
+                                                                                                                                             },
+                                                                                                                                   "side":  {
+                                                                                                                                                "minLength":  1,
+                                                                                                                                                "type":  "string"
+                                                                                                                                            },
+                                                                                                                                   "rear":  {
+                                                                                                                                                "minLength":  1,
+                                                                                                                                                "type":  "string"
+                                                                                                                                            },
+                                                                                                                                   "interior":  {
+                                                                                                                                                    "minLength":  1,
+                                                                                                                                                    "type":  "string"
+                                                                                                                                                }
+                                                                                                                               }
+                                                                                                            },
+                                                                                                  "destination":  {
+                                                                                                                      "type":  "object",
+                                                                                                                      "additionalProperties":  false,
+                                                                                                                      "required":  [
+                                                                                                                                       "front",
+                                                                                                                                       "side",
+                                                                                                                                       "rear",
+                                                                                                                                       "interior"
+                                                                                                                                   ],
+                                                                                                                      "properties":  {
+                                                                                                                                         "front":  {
+                                                                                                                                                       "minLength":  1,
+                                                                                                                                                       "type":  "string"
+                                                                                                                                                   },
+                                                                                                                                         "side":  {
+                                                                                                                                                      "minLength":  1,
+                                                                                                                                                      "type":  "string"
+                                                                                                                                                  },
+                                                                                                                                         "rear":  {
+                                                                                                                                                      "minLength":  1,
+                                                                                                                                                      "type":  "string"
+                                                                                                                                                  },
+                                                                                                                                         "interior":  {
+                                                                                                                                                          "minLength":  1,
+                                                                                                                                                          "type":  "string"
+                                                                                                                                                      }
+                                                                                                                                     }
+                                                                                                                  },
+                                                                                                  "serviceMessage":  {
+                                                                                                                         "type":  "object",
+                                                                                                                         "additionalProperties":  false,
+                                                                                                                         "required":  [
+                                                                                                                                          "front",
+                                                                                                                                          "side",
+                                                                                                                                          "rear",
+                                                                                                                                          "interior"
+                                                                                                                                      ],
+                                                                                                                         "properties":  {
+                                                                                                                                            "front":  {
+                                                                                                                                                          "minLength":  1,
+                                                                                                                                                          "type":  "string"
+                                                                                                                                                      },
+                                                                                                                                            "side":  {
+                                                                                                                                                         "minLength":  1,
+                                                                                                                                                         "type":  "string"
+                                                                                                                                                     },
+                                                                                                                                            "rear":  {
+                                                                                                                                                         "minLength":  1,
+                                                                                                                                                         "type":  "string"
+                                                                                                                                                     },
+                                                                                                                                            "interior":  {
+                                                                                                                                                             "minLength":  1,
+                                                                                                                                                             "type":  "string"
+                                                                                                                                                         }
+                                                                                                                                        }
+                                                                                                                     },
+                                                                                                  "emergency":  {
+                                                                                                                    "type":  "object",
+                                                                                                                    "additionalProperties":  false,
+                                                                                                                    "required":  [
+                                                                                                                                     "front",
+                                                                                                                                     "side",
+                                                                                                                                     "rear",
+                                                                                                                                     "interior"
+                                                                                                                                 ],
+                                                                                                                    "properties":  {
+                                                                                                                                       "front":  {
+                                                                                                                                                     "minLength":  1,
+                                                                                                                                                     "type":  "string"
+                                                                                                                                                 },
+                                                                                                                                       "side":  {
+                                                                                                                                                    "minLength":  1,
+                                                                                                                                                    "type":  "string"
+                                                                                                                                                },
+                                                                                                                                       "rear":  {
+                                                                                                                                                    "minLength":  1,
+                                                                                                                                                    "type":  "string"
+                                                                                                                                                },
+                                                                                                                                       "interior":  {
+                                                                                                                                                        "minLength":  1,
+                                                                                                                                                        "type":  "string"
+                                                                                                                                                    }
+                                                                                                                                   }
+                                                                                                                },
+                                                                                                  "preview":  {
+                                                                                                                  "type":  "object",
+                                                                                                                  "additionalProperties":  false,
+                                                                                                                  "required":  [
+                                                                                                                                   "front",
+                                                                                                                                   "side",
+                                                                                                                                   "rear",
+                                                                                                                                   "interior"
+                                                                                                                               ],
+                                                                                                                  "properties":  {
+                                                                                                                                     "front":  {
+                                                                                                                                                   "minLength":  1,
+                                                                                                                                                   "type":  "string"
+                                                                                                                                               },
+                                                                                                                                     "side":  {
+                                                                                                                                                  "minLength":  1,
+                                                                                                                                                  "type":  "string"
+                                                                                                                                              },
+                                                                                                                                     "rear":  {
+                                                                                                                                                  "minLength":  1,
+                                                                                                                                                  "type":  "string"
+                                                                                                                                              },
+                                                                                                                                     "interior":  {
+                                                                                                                                                      "minLength":  1,
+                                                                                                                                                      "type":  "string"
+                                                                                                                                                  }
+                                                                                                                                 }
+                                                                                                              }
+                                                                                              }
+                                                                           },
+                                                             "routeDisplayMode":  {
+                                                                                      "type":  "object",
+                                                                                      "additionalProperties":  false,
+                                                                                      "required":  [
+                                                                                                       "lineTemplate",
+                                                                                                       "destinationTemplate",
+                                                                                                       "useRouteShortName",
+                                                                                                       "useHeadsign",
+                                                                                                       "sideViaSeparator",
+                                                                                                       "unknownRouteLabel"
+                                                                                                   ],
+                                                                                      "properties":  {
+                                                                                                         "lineTemplate":  {
+                                                                                                                              "minLength":  1,
+                                                                                                                              "type":  "string"
+                                                                                                                          },
+                                                                                                         "destinationTemplate":  {
+                                                                                                                                     "minLength":  1,
+                                                                                                                                     "type":  "string"
+                                                                                                                                 },
+                                                                                                         "useRouteShortName":  {
+                                                                                                                                   "type":  "boolean"
+                                                                                                                               },
+                                                                                                         "useHeadsign":  {
+                                                                                                                             "type":  "boolean"
+                                                                                                                         },
+                                                                                                         "sideViaSeparator":  {
+                                                                                                                                  "minLength":  1,
+                                                                                                                                  "type":  "string"
+                                                                                                                              },
+                                                                                                         "unknownRouteLabel":  {
+                                                                                                                                   "minLength":  1,
+                                                                                                                                   "type":  "string"
+                                                                                                                               }
+                                                                                                     }
+                                                                                  },
+                                                             "destinationDisplayMode":  {
+                                                                                            "type":  "object",
+                                                                                            "additionalProperties":  false,
+                                                                                            "required":  [
+                                                                                                             "destinationTemplate",
+                                                                                                             "fallbackDestination",
+                                                                                                             "includeVia",
+                                                                                                             "viaSeparator"
+                                                                                                         ],
+                                                                                            "properties":  {
+                                                                                                               "destinationTemplate":  {
+                                                                                                                                           "minLength":  1,
+                                                                                                                                           "type":  "string"
+                                                                                                                                       },
+                                                                                                               "fallbackDestination":  {
+                                                                                                                                           "minLength":  1,
+                                                                                                                                           "type":  "string"
+                                                                                                                                       },
+                                                                                                               "includeVia":  {
+                                                                                                                                  "type":  "boolean"
+                                                                                                                              },
+                                                                                                               "viaSeparator":  {
+                                                                                                                                    "minLength":  1,
+                                                                                                                                    "type":  "string"
+                                                                                                                                }
+                                                                                                           }
+                                                                                        },
+                                                             "serviceMessageMode":  {
+                                                                                        "type":  "object",
+                                                                                        "additionalProperties":  false,
+                                                                                        "required":  [
+                                                                                                         "template",
+                                                                                                         "defaultDurationSeconds",
+                                                                                                         "prefix",
+                                                                                                         "allowBlink"
+                                                                                                     ],
+                                                                                        "properties":  {
+                                                                                                           "template":  {
+                                                                                                                            "minLength":  1,
+                                                                                                                            "type":  "string"
+                                                                                                                        },
+                                                                                                           "defaultDurationSeconds":  {
+                                                                                                                                          "type":  "integer",
+                                                                                                                                          "minimum":  1
+                                                                                                                                      },
+                                                                                                           "prefix":  {
+                                                                                                                          "minLength":  1,
+                                                                                                                          "type":  "string"
+                                                                                                                      },
+                                                                                                           "allowBlink":  {
+                                                                                                                              "type":  "boolean"
+                                                                                                                          }
+                                                                                                       }
+                                                                                    },
+                                                             "emergencyMode":  {
+                                                                                   "type":  "object",
+                                                                                   "additionalProperties":  false,
+                                                                                   "required":  [
+                                                                                                    "template",
+                                                                                                    "priority",
+                                                                                                    "clearsStandardContent",
+                                                                                                    "requiresAcknowledgement"
+                                                                                                ],
+                                                                                   "properties":  {
+                                                                                                      "template":  {
+                                                                                                                       "minLength":  1,
+                                                                                                                       "type":  "string"
+                                                                                                                   },
+                                                                                                      "priority":  {
+                                                                                                                       "type":  "integer",
+                                                                                                                       "minimum":  1
+                                                                                                                   },
+                                                                                                      "clearsStandardContent":  {
+                                                                                                                                    "type":  "boolean"
+                                                                                                                                },
+                                                                                                      "requiresAcknowledgement":  {
+                                                                                                                                      "type":  "boolean"
+                                                                                                                                  }
+                                                                                                  }
+                                                                               },
+                                                             "previewMode":  {
+                                                                                 "type":  "object",
+                                                                                 "additionalProperties":  false,
+                                                                                 "required":  [
+                                                                                                  "enabled",
+                                                                                                  "sampleValues"
+                                                                                              ],
+                                                                                 "properties":  {
+                                                                                                    "enabled":  {
+                                                                                                                    "type":  "boolean"
+                                                                                                                },
+                                                                                                    "sampleValues":  {
+                                                                                                                         "type":  "object",
+                                                                                                                         "additionalProperties":  false,
+                                                                                                                         "required":  [
+                                                                                                                                          "routeShortName",
+                                                                                                                                          "routeLongName",
+                                                                                                                                          "headsign",
+                                                                                                                                          "destination",
+                                                                                                                                          "via",
+                                                                                                                                          "serviceMessage",
+                                                                                                                                          "emergencyMessage",
+                                                                                                                                          "nextStop",
+                                                                                                                                          "publicNote"
+                                                                                                                                      ],
+                                                                                                                         "properties":  {
+                                                                                                                                            "routeShortName":  {
+                                                                                                                                                                   "minLength":  1,
+                                                                                                                                                                   "type":  "string"
+                                                                                                                                                               },
+                                                                                                                                            "routeLongName":  {
+                                                                                                                                                                  "minLength":  1,
+                                                                                                                                                                  "type":  "string"
+                                                                                                                                                              },
+                                                                                                                                            "headsign":  {
+                                                                                                                                                             "minLength":  1,
+                                                                                                                                                             "type":  "string"
+                                                                                                                                                         },
+                                                                                                                                            "destination":  {
+                                                                                                                                                                "minLength":  1,
+                                                                                                                                                                "type":  "string"
+                                                                                                                                                            },
+                                                                                                                                            "via":  {
+                                                                                                                                                        "minLength":  1,
+                                                                                                                                                        "type":  "string"
+                                                                                                                                                    },
+                                                                                                                                            "serviceMessage":  {
+                                                                                                                                                                   "minLength":  1,
+                                                                                                                                                                   "type":  "string"
+                                                                                                                                                               },
+                                                                                                                                            "emergencyMessage":  {
+                                                                                                                                                                     "minLength":  1,
+                                                                                                                                                                     "type":  "string"
+                                                                                                                                                                 },
+                                                                                                                                            "nextStop":  {
+                                                                                                                                                             "minLength":  1,
+                                                                                                                                                             "type":  "string"
+                                                                                                                                                         },
+                                                                                                                                            "publicNote":  {
+                                                                                                                                                               "minLength":  1,
+                                                                                                                                                               "type":  "string"
+                                                                                                                                                           }
+                                                                                                                                        }
+                                                                                                                     }
+                                                                                                }
+                                                                             }
                                                          }
                                       },
                        "gtfs":  {

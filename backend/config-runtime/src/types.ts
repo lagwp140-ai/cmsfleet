@@ -2,6 +2,8 @@ export type NodeEnvironment = "development" | "test" | "production";
 export type AppEnvironment = "local" | "test" | "staging" | "production";
 export type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 export type UserRole = "super_admin" | "dispatcher" | "operator" | "viewer";
+export type DisplaySurface = "front" | "side" | "rear" | "interior";
+export type DisplayMode = "route" | "destination" | "service_message" | "emergency" | "preview";
 
 export interface ConfigSelection {
   environment: AppEnvironment;
@@ -108,18 +110,105 @@ export interface GpsConfig {
   simulate: boolean;
 }
 
+export interface LedDisplaySurfaceMappings {
+  front: string;
+  side: string;
+  rear: string;
+  interior: string;
+}
+
+export interface LedDisplaySurfaceTemplates {
+  front: string;
+  side: string;
+  rear: string;
+  interior: string;
+}
+
+export interface LedDisplayMessageFormat {
+  name: string;
+  lineCount: number;
+  maxCharactersPerLine: number;
+  encoding: string;
+}
+
+export interface LedDisplayControllerContract {
+  protocolFamily: string;
+  transport: string;
+  supportedOperations: Array<"publish" | "preview" | "clear" | "set_brightness">;
+  supportsMultiZone: boolean;
+  maxLines: number;
+}
+
+export interface LedDisplayRouteDisplayMode {
+  lineTemplate: string;
+  destinationTemplate: string;
+  useRouteShortName: boolean;
+  useHeadsign: boolean;
+  sideViaSeparator: string;
+  unknownRouteLabel: string;
+}
+
+export interface LedDisplayDestinationDisplayMode {
+  destinationTemplate: string;
+  fallbackDestination: string;
+  includeVia: boolean;
+  viaSeparator: string;
+}
+
+export interface LedDisplayServiceMessageMode {
+  template: string;
+  defaultDurationSeconds: number;
+  prefix: string;
+  allowBlink: boolean;
+}
+
+export interface LedDisplayEmergencyMode {
+  template: string;
+  priority: number;
+  clearsStandardContent: boolean;
+  requiresAcknowledgement: boolean;
+}
+
+export interface LedDisplayPreviewSampleValues {
+  routeShortName: string;
+  routeLongName: string;
+  headsign: string;
+  destination: string;
+  via: string;
+  serviceMessage: string;
+  emergencyMessage: string;
+  nextStop: string;
+  publicNote: string;
+}
+
+export interface LedDisplayPreviewMode {
+  enabled: boolean;
+  sampleValues: LedDisplayPreviewSampleValues;
+}
+
+export interface LedDisplayModeTemplates {
+  route: LedDisplaySurfaceTemplates;
+  destination: LedDisplaySurfaceTemplates;
+  serviceMessage: LedDisplaySurfaceTemplates;
+  emergency: LedDisplaySurfaceTemplates;
+  preview: LedDisplaySurfaceTemplates;
+}
+
 export interface LedDisplayConfig {
   profileId: string;
   provider: string;
   controller: string;
   brightness: number;
   destinationTemplate: string;
-  mappings: {
-    front: string;
-    side: string;
-    rear: string;
-    interior: string;
-  };
+  mappings: LedDisplaySurfaceMappings;
+  messageFormat: LedDisplayMessageFormat;
+  controllerContract: LedDisplayControllerContract;
+  templates: LedDisplayModeTemplates;
+  routeDisplayMode: LedDisplayRouteDisplayMode;
+  destinationDisplayMode: LedDisplayDestinationDisplayMode;
+  serviceMessageMode: LedDisplayServiceMessageMode;
+  emergencyMode: LedDisplayEmergencyMode;
+  previewMode: LedDisplayPreviewMode;
 }
 
 export interface GtfsRealtimeConfig {
@@ -186,8 +275,3 @@ export interface LoadCmsConfigOptions {
   cwd?: string;
   rawEnv?: NodeJS.ProcessEnv;
 }
-
-
-
-
-

@@ -60,8 +60,29 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardResponse> {
   return request<AdminDashboardResponse>("/api/admin/dashboard");
 }
 
-export async function fetchAuditEvents(limit = 25): Promise<AuditEvent[]> {
-  const response = await request<{ events: AuditEvent[] }>(`/api/admin/audit-events?limit=${limit}`);
+export async function fetchAuditEvents(
+  limit = 25,
+  filters: { search?: string; success?: boolean; type?: AuditEvent["type"]; userId?: string } = {}
+): Promise<AuditEvent[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+
+  if (filters.search) {
+    query.set("search", filters.search);
+  }
+
+  if (filters.success !== undefined) {
+    query.set("success", String(filters.success));
+  }
+
+  if (filters.type) {
+    query.set("type", filters.type);
+  }
+
+  if (filters.userId) {
+    query.set("userId", filters.userId);
+  }
+
+  const response = await request<{ events: AuditEvent[] }>(`/api/admin/audit-events?${query.toString()}`);
   return response.events;
 }
 

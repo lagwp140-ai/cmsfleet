@@ -1,4 +1,4 @@
-﻿import { ApiError } from "../auth/authClient";
+import { ApiError } from "../auth/authClient";
 
 import type { GtfsImportErrorRecord, GtfsImportResult, GtfsOverviewResponse } from "./gtfsTypes";
 
@@ -43,6 +43,23 @@ export async function fetchGtfsErrors(jobId: string, limit = 200): Promise<GtfsI
   return response.errors;
 }
 
+export async function fetchGtfsLogs(
+  limit = 25,
+  filters: { search?: string; status?: "queued" | "running" | "succeeded" | "failed" | "cancelled" } = {}
+): Promise<GtfsOverviewResponse["jobs"]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+
+  if (filters.search) {
+    query.set("search", filters.search);
+  }
+
+  if (filters.status) {
+    query.set("status", filters.status);
+  }
+
+  const response = await request<{ jobs: GtfsOverviewResponse["jobs"] }>(`/api/admin/gtfs/logs?${query.toString()}`);
+  return response.jobs;
+}
 export async function fetchGtfsOverview(): Promise<GtfsOverviewResponse> {
   return request<GtfsOverviewResponse>("/api/admin/gtfs/overview?limit=25");
 }
@@ -64,3 +81,4 @@ export async function importGtfsUpload(input: { activateOnSuccess: boolean; data
 export async function rollbackGtfsDataset(datasetId: string): Promise<void> {
   await request<void>(`/api/admin/gtfs/datasets/${datasetId}/rollback`, { method: "POST" });
 }
+

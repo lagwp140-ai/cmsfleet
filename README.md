@@ -95,6 +95,16 @@ The platform now resolves the current operating service for each bus with a manu
 - unresolved auto-mode vehicles are held in an explicit `awaiting_auto_match` state until GPS-assisted matching is added later
 - operator visibility is available through [`frontend/web/src/pages/RoutesPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/RoutesPage.tsx)
 - architecture notes live in [`docs/architecture/route-resolution.md`](/c:/Projects/cmsfleet/docs/architecture/route-resolution.md)
+
+## LED Display Domain
+
+The platform now includes a protocol-neutral LED display model:
+
+- display profiles define message format, controller capabilities, and mode-specific templates
+- route, destination, service-message, emergency, and preview behavior live in configuration instead of transport logic
+- the backend exposes a display domain API, preview renderer, structured command-generation layer, and queue-backed hardware adapter integration under [`backend/api/src/modules/displays`](/c:/Projects/cmsfleet/backend/api/src/modules/displays/module.ts)
+- the admin shell now has a real Displays page in [`frontend/web/src/pages/DisplaysPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/DisplaysPage.tsx)
+- architecture notes live in [`docs/architecture/led-display-domain.md`](/c:/Projects/cmsfleet/docs/architecture/led-display-domain.md)
 ## GPS Ingestion and Telemetry
 
 The platform now includes a real-time GPS ingestion path for onboard modules:
@@ -144,6 +154,10 @@ The platform now includes a versioned GTFS control path for route and trip data:
 - Add GPS-assisted automatic trip matching on top of the manual and schedule-based route engine.
 - Add CI to run config validation, lint, typecheck, unit tests, and migration validation.
 - Add remote URL ingestion and scheduled GTFS sync workers on top of the existing dataset activation and calendar model.
+
+
+
+
 
 
 

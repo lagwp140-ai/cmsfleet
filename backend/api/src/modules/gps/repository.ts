@@ -1,7 +1,8 @@
-﻿import type { Pool, PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import type {
   GpsIngestStatus,
+  GpsMessageFilters,
   GpsMovementState,
   GpsVehicleStatusRecord,
   MatchedVehicleRecord,
@@ -219,7 +220,31 @@ export class GpsRepository {
     return result.rows[0]!.id;
   }
 
-  async listRecentMessages(limit: number): Promise<RecentGpsMessageRecord[]> {
+  async listRecentMessages(limit: number, filters: GpsMessageFilters = {}): Promise<RecentGpsMessageRecord[]> {
+    const conditions: string[] = [];
+    const values: Array<number | string> = [];
+
+    if (filters.ingestStatus) {
+      values.push(filters.ingestStatus);
+      conditions.push(`m.ingest_status = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${filters.search}%`);
+      const placeholder = `$${values.length}`;
+      conditions.push(`(
+        m.source_name ILIKE ${placeholder}
+        OR COALESCE(m.provider_message_id, '') ILIKE ${placeholder}
+        OR COALESCE(v.vehicle_code, '') ILIKE ${placeholder}
+        OR COALESCE(v.label, '') ILIKE ${placeholder}
+        OR m.metadata::text ILIKE ${placeholder}
+      )`);
+    }
+
+    values.push(limit);
+    const limitPlaceholder = `$${values.length}`;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
     const result = await this.pool.query<RecentGpsMessageRecord>(
       `
         SELECT
@@ -241,10 +266,11 @@ export class GpsRepository {
           v.label AS "vehicleLabel"
         FROM telemetry.gps_messages m
         LEFT JOIN fleet.vehicles v ON v.id = m.vehicle_id
+        ${whereClause}
         ORDER BY m.received_at DESC
-        LIMIT $1
+        LIMIT ${limitPlaceholder}
       `,
-      [limit]
+      values
     );
 
     return result.rows;
@@ -426,4 +452,6 @@ export class GpsRepository {
     return (result.rowCount ?? 0) > 0;
   }
 }
+
+
 

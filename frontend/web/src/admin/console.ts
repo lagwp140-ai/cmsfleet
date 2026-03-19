@@ -132,7 +132,7 @@ export const adminSections: AdminSection[] = [
     key: "logs",
     label: "Logs",
     path: "logs",
-    permission: "audit:read"
+    permission: "admin:access"
   },
   {
     description: "Deployment profiles, feature flags, and runtime override posture.",
@@ -550,5 +550,6 @@ export function buildModuleDefinition(
       throw new Error(`Unsupported admin module definition: ${moduleKey}`);
   }
 }
+
 
 

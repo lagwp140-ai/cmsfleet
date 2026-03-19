@@ -6,10 +6,95 @@
     "brightness": 70,
     "destinationTemplate": "{routeShortName} {destination}",
     "mappings": {
-      "front": "routeShortName:destination",
-      "side": "routeShortName:destination",
-      "rear": "routeShortName",
-      "interior": "destination"
+      "front": "route",
+      "side": "destination",
+      "rear": "route",
+      "interior": "service_message"
+    },
+    "messageFormat": {
+      "name": "2-line-led",
+      "lineCount": 2,
+      "maxCharactersPerLine": 20,
+      "encoding": "ascii"
+    },
+    "controllerContract": {
+      "protocolFamily": "abstract-led-envelope",
+      "transport": "serial",
+      "supportedOperations": ["publish", "preview", "clear", "set_brightness"],
+      "supportsMultiZone": true,
+      "maxLines": 2
+    },
+    "templates": {
+      "route": {
+        "front": "{routeShortName} {destination}",
+        "side": "{routeShortName} {destination}",
+        "rear": "{routeShortName}",
+        "interior": "Next {nextStop}"
+      },
+      "destination": {
+        "front": "{destination}",
+        "side": "{destination}",
+        "rear": "{routeShortName}",
+        "interior": "To {destination}"
+      },
+      "serviceMessage": {
+        "front": "Info {serviceMessage}",
+        "side": "Info {serviceMessage}",
+        "rear": "Info",
+        "interior": "{serviceMessage}"
+      },
+      "emergency": {
+        "front": "EMERGENCY {emergencyMessage}",
+        "side": "EMERGENCY {emergencyMessage}",
+        "rear": "EMERG",
+        "interior": "EMERGENCY {emergencyMessage}"
+      },
+      "preview": {
+        "front": "Preview {routeShortName}",
+        "side": "Preview {destination}",
+        "rear": "Preview",
+        "interior": "Preview {publicNote}"
+      }
+    },
+    "routeDisplayMode": {
+      "lineTemplate": "{routeShortName}",
+      "destinationTemplate": "{destination}",
+      "useRouteShortName": true,
+      "useHeadsign": false,
+      "sideViaSeparator": " via ",
+      "unknownRouteLabel": "Out of Service"
+    },
+    "destinationDisplayMode": {
+      "destinationTemplate": "{destination}",
+      "fallbackDestination": "Depot",
+      "includeVia": false,
+      "viaSeparator": " via "
+    },
+    "serviceMessageMode": {
+      "template": "INFO {serviceMessage}",
+      "defaultDurationSeconds": 15,
+      "prefix": "INFO",
+      "allowBlink": true
+    },
+    "emergencyMode": {
+      "template": "EMERGENCY {emergencyMessage}",
+      "priority": 100,
+      "clearsStandardContent": true,
+      "requiresAcknowledgement": false
+    },
+    "previewMode": {
+      "enabled": true,
+      "sampleValues": {
+        "routeShortName": "A1",
+        "routeLongName": "Airport Express",
+        "headsign": "Airport Terminal",
+        "destination": "Airport Terminal",
+        "via": "City Center",
+        "serviceMessage": "Service starts in 5 min",
+        "emergencyMessage": "Contact operator",
+        "nextStop": "City Center",
+        "publicNote": "Controller preview"
+      }
     }
   }
 }

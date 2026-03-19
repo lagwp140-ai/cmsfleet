@@ -969,3 +969,140 @@ button:hover {
 .registry-card__spec strong {
   overflow-wrap: anywhere;
 }
+
+.config-scope-grid {
+  grid-template-columns: 1fr;
+}
+
+.config-editor-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.console-panel--nested {
+  box-shadow: none;
+  padding: 16px;
+}
+
+.code-editor,
+.json-block,
+.json-inline-block {
+  background: #0f1b28;
+  border: 1px solid #233547;
+  border-radius: 18px;
+  color: #d9e6f2;
+  font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+}
+
+.code-editor {
+  min-height: 420px;
+  outline: none;
+  padding: 16px;
+  resize: vertical;
+}
+
+.code-editor:focus {
+  border-color: #76afd1;
+  box-shadow: 0 0 0 4px rgba(12, 120, 186, 0.12);
+}
+
+.json-block {
+  margin: 0;
+  max-height: 380px;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+.json-inline-block {
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.diff-list,
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.diff-item,
+.history-item {
+  background: #f6f9fc;
+  border: 1px solid #e0e8ef;
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.diff-item__header,
+.history-item__header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.diff-item__body {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.diff-item__label,
+.history-item__title {
+  color: #30485b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.history-item__meta {
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.history-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .diff-item__body,
+  .history-item__header,
+  .history-item__actions {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.filter-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.secret-box {
+  background: #fff8ea;
+  border: 1px solid #efd39b;
+  border-radius: 18px;
+  color: #4f3705;
+  font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+  font-size: 1rem;
+  margin: 0;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 960px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}

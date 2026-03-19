@@ -1,4 +1,4 @@
-﻿import type { CmsConfig } from "@cmsfleet/config-runtime";
+import type { CmsConfig } from "@cmsfleet/config-runtime";
 import type { FastifyBaseLogger } from "fastify";
 import type { PoolClient } from "pg";
 
@@ -9,6 +9,7 @@ import type {
   GpsConnectionState,
   GpsIngestionAdapter,
   GpsIngestionResult,
+  GpsMessageFilters,
   GpsStatusSummary,
   GpsVehicleStatusRecord,
   NormalizedGpsMessage,
@@ -186,8 +187,8 @@ export class GpsIngestionService {
     };
   }
 
-  async listRecentMessages(limit: number): Promise<RecentGpsMessageRecord[]> {
-    return this.repository.listRecentMessages(limit);
+  async listRecentMessages(limit: number, filters: GpsMessageFilters = {}): Promise<RecentGpsMessageRecord[]> {
+    return this.repository.listRecentMessages(limit, filters);
   }
 
   async listVehicleStatuses(): Promise<{
@@ -441,4 +442,5 @@ async function rollbackQuietly(client: PoolClient, logger: FastifyBaseLogger): P
     logger.error({ err: error }, "Failed to roll back GPS transaction");
   }
 }
+
 

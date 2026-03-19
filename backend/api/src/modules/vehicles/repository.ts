@@ -156,7 +156,7 @@ export class VehicleRepository {
       [vehicleId]
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async deviceProfileExists(profileId: string): Promise<boolean> {
@@ -169,7 +169,7 @@ export class VehicleRepository {
       [profileId]
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async displayProfileExists(profileId: string): Promise<boolean> {
@@ -182,7 +182,7 @@ export class VehicleRepository {
       [profileId]
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getVehicleById(vehicleId: string): Promise<VehicleRecord | null> {
@@ -264,7 +264,7 @@ export class VehicleRepository {
       [routeId]
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async updateVehicle(vehicleId: string, input: VehicleMutationInput): Promise<VehicleRecord | null> {
@@ -384,3 +384,4 @@ function serializeTimestamp(value: Date | string | null): string | null {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? value : new Date(timestamp).toISOString();
 }
+

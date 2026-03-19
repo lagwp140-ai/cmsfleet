@@ -1,4 +1,4 @@
-﻿import type { VehicleOperationalStatus, VehicleRouteOverrideMode } from "../vehicles/types.js";
+import type { VehicleOperationalStatus, VehicleRouteOverrideMode } from "../vehicles/types.js";
 
 export const GPS_INGEST_STATUSES = ["accepted", "duplicate", "rejected"] as const;
 export const GPS_CONNECTION_STATES = ["online", "stale", "offline", "unknown"] as const;
@@ -137,6 +137,10 @@ export interface GpsStatusSummary {
   unknownVehicles: number;
 }
 
+export interface GpsMessageFilters {
+  ingestStatus?: GpsIngestStatus;
+  search?: string;
+}
 export interface RecentGpsMessageRecord {
   accuracyM: number | null;
   headingDeg: number | null;
@@ -155,3 +159,4 @@ export interface RecentGpsMessageRecord {
   vehicleId: string | null;
   vehicleLabel: string | null;
 }
+
