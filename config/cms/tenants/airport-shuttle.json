@@ -1,0 +1,28 @@
+{
+  "tenant": {
+    "id": "airport-shuttle",
+    "displayName": "Airport Shuttle Services",
+    "locale": "en-US",
+    "timezone": "Europe/Kiev"
+  },
+  "branding": {
+    "applicationName": "Airport Shuttle CMS",
+    "operatorName": "Airport Shuttle Services",
+    "locale": "en-US",
+    "palette": {
+      "primary": "#0B3C5D",
+      "secondary": "#F4B400",
+      "surface": "#F7F9FB",
+      "text": "#12212E"
+    },
+    "assets": {
+      "logoUrl": "/branding/airport-shuttle/logo.svg",
+      "iconUrl": "/branding/airport-shuttle/icon.svg"
+    }
+  },
+  "featureFlags": {
+    "advancedHeadSignRules": false,
+    "multiDepotOperations": false,
+    "realtimeVehiclePositions": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "device": {
+    "profileId": "linux-signage-unit",
+    "platform": "industrial-pc",
+    "operatingSystem": "linux",
+    "connectivity": {
+      "gps": true,
+      "cellular": true,
+      "wifi": true
+    }
+  }
+}

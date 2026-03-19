@@ -1,0 +1,26 @@
+{
+  "transport": {
+    "mode": "bus",
+    "serviceArea": "airport-corridor",
+    "routeStrategy": {
+      "type": "static-pattern",
+      "fallbackDestination": "Airport Terminal",
+      "preferRealtimeTripUpdates": false
+    }
+  },
+  "gps": {
+    "provider": "vendor-http",
+    "sourceType": "http-poll",
+    "endpoint": "https://vendor.example.invalid/shuttle-gps",
+    "pollIntervalMs": 7000,
+    "freshnessThresholdSeconds": 45,
+    "vehicleIdField": "unitCode",
+    "simulate": false
+  },
+  "gtfs": {
+    "enabled": true,
+    "agencyId": "airport-shuttle",
+    "timezone": "Europe/Kiev",
+    "staticFeedUrl": "https://feeds.example.invalid/airport/gtfs.zip"
+  }
+}

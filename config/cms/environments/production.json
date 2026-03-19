@@ -1,0 +1,27 @@
+{
+  "selection": {
+    "environment": "production"
+  },
+  "runtime": {
+    "observability": {
+      "logLevel": "warn"
+    }
+  },
+  "auth": {
+    "bootstrapUsersEnabled": false,
+    "session": {
+      "secureCookies": true
+    }
+  },
+  "gps": {
+    "simulate": false
+  },
+  "gtfs": {
+    "realtime": {
+      "enabled": true,
+      "tripUpdatesUrl": "https://api.example.invalid/gtfs/trip-updates",
+      "vehiclePositionsUrl": "https://api.example.invalid/gtfs/vehicle-positions",
+      "alertsUrl": "https://api.example.invalid/gtfs/alerts"
+    }
+  }
+}

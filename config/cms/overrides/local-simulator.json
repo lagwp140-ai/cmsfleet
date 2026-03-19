@@ -1,0 +1,11 @@
+{
+  "gps": {
+    "provider": "local-simulator",
+    "sourceType": "mock",
+    "endpoint": "http://localhost:4010/gps",
+    "simulate": true
+  },
+  "featureFlags": {
+    "realtimeVehiclePositions": true
+  }
+}

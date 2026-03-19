@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.0.0",
+  "selection": {
+    "environment": "local",
+    "tenantProfile": "demo-city",
+    "transportProfile": "urban-bus",
+    "vehicleProfile": "standard-bus-12m",
+    "deviceProfile": "linux-signage-unit",
+    "displayProfile": "hanover-led-3line"
+  },
+  "runtime": {
+    "api": {
+      "port": 3000,
+      "corsOrigins": [
+        "http://localhost:5173"
+      ]
+    },
+    "worker": {
+      "pollIntervalMs": 5000
+    },
+    "observability": {
+      "logLevel": "info"
+    },
+    "database": {
+      "url": "postgres://cmsfleet:cmsfleet@localhost:5432/cmsfleet"
+    }
+  },
+  "auth": {
+    "bootstrapUsersEnabled": true,
+    "passwordPolicy": {
+      "algorithm": "pbkdf2_sha512",
+      "iterations": 210000,
+      "keyLength": 64,
+      "minLength": 12,
+      "saltLength": 16
+    },
+    "rbac": {
+      "roles": {
+        "super_admin": {
+          "label": "Super Admin",
+          "permissions": [
+            "admin:access",
+            "audit:read",
+            "content:manage",
+            "dispatch:manage",
+            "fleet:read",
+            "auth:self",
+            "users:manage"
+          ]
+        },
+        "dispatcher": {
+          "label": "Dispatcher",
+          "permissions": [
+            "admin:access",
+            "audit:read",
+            "dispatch:manage",
+            "fleet:read",
+            "auth:self"
+          ]
+        },
+        "operator": {
+          "label": "Operator",
+          "permissions": [
+            "admin:access",
+            "content:manage",
+            "fleet:read",
+            "auth:self"
+          ]
+        },
+        "viewer": {
+          "label": "Viewer",
+          "permissions": [
+            "admin:access",
+            "fleet:read",
+            "auth:self"
+          ]
+        }
+      }
+    },
+    "session": {
+      "cookieName": "cmsfleet_session",
+      "maxAgeMinutes": 480,
+      "secret": "local-dev-session-secret-change-me-2026",
+      "secureCookies": false
+    }
+  },
+  "tenant": {
+    "id": "core",
+    "displayName": "Shared CMS Core",
+    "locale": "en-US",
+    "timezone": "UTC"
+  },
+  "transport": {
+    "mode": "bus",
+    "serviceArea": "default-network",
+    "routeStrategy": {
+      "type": "gtfs-trip-headsign",
+      "fallbackDestination": "Not In Service",
+      "preferRealtimeTripUpdates": false
+    }
+  },
+  "vehicle": {
+    "profileId": "standard-bus-12m",
+    "class": "city-bus",
+    "hardwareModel": "generic-led-bus",
+    "passengerCapacity": 70,
+    "accessibility": {
+      "wheelchairSpaces": 1,
+      "bikeRack": false
+    }
+  },
+  "device": {
+    "profileId": "linux-signage-unit",
+    "platform": "industrial-pc",
+    "operatingSystem": "linux",
+    "connectivity": {
+      "gps": true,
+      "cellular": true,
+      "wifi": true
+    }
+  },
+  "gps": {
+    "provider": "mock-simulator",
+    "sourceType": "mock",
+    "endpoint": "http://localhost:4010/gps",
+    "pollIntervalMs": 5000,
+    "freshnessThresholdSeconds": 30,
+    "vehicleIdField": "vehicleId",
+    "simulate": true
+  },
+  "ledDisplay": {
+    "profileId": "hanover-led-3line",
+    "provider": "hanover",
+    "controller": "ethernet-gateway",
+    "brightness": 80,
+    "destinationTemplate": "{routeShortName} {headsign}",
+    "mappings": {
+      "front": "routeShortName:headsign",
+      "side": "routeShortName:destination:via",
+      "rear": "routeShortName",
+      "interior": "nextStop"
+    }
+  },
+  "gtfs": {
+    "enabled": true,
+    "agencyId": "demo-bus",
+    "timezone": "Europe/Kiev",
+    "staticFeedUrl": "https://example.invalid/demo-city/gtfs.zip",
+    "realtime": {
+      "enabled": false,
+      "tripUpdatesUrl": null,
+      "vehiclePositionsUrl": null,
+      "alertsUrl": null
+    }
+  },
+  "branding": {
+    "applicationName": "cmsfleet",
+    "operatorName": "Shared Transit Platform",
+    "locale": "en-US",
+    "palette": {
+      "primary": "#0057B8",
+      "secondary": "#FDB913",
+      "surface": "#F5F7FA",
+      "text": "#102A43"
+    },
+    "assets": {
+      "logoUrl": "/branding/default/logo.svg",
+      "iconUrl": "/branding/default/icon.svg"
+    }
+  },
+  "featureFlags": {
+    "advancedHeadSignRules": false,
+    "gtfsImport": true,
+    "multiDepotOperations": false,
+    "realtimeVehiclePositions": false,
+    "vehicleLevelBranding": true
+  }
+}

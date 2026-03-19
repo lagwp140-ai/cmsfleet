@@ -1,0 +1,28 @@
+{
+  "tenant": {
+    "id": "demo-city",
+    "displayName": "Demo City Transit",
+    "locale": "uk-UA",
+    "timezone": "Europe/Kiev"
+  },
+  "branding": {
+    "applicationName": "Demo City Fleet CMS",
+    "operatorName": "Demo City Transit",
+    "locale": "uk-UA",
+    "palette": {
+      "primary": "#005BBB",
+      "secondary": "#FFD500",
+      "surface": "#F4F8FB",
+      "text": "#102A43"
+    },
+    "assets": {
+      "logoUrl": "/branding/demo-city/logo.svg",
+      "iconUrl": "/branding/demo-city/icon.svg"
+    }
+  },
+  "featureFlags": {
+    "advancedHeadSignRules": true,
+    "multiDepotOperations": true,
+    "realtimeVehiclePositions": true
+  }
+}

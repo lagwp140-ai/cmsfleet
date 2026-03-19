@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+.next/
+.vite/
+build/
+.gradle/
+.idea/
+.vscode/
+*.log
+.env
+.env.local
+.env.*.local
+!.env.example
+tmp/

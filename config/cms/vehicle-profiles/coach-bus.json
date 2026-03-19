@@ -1,0 +1,12 @@
+{
+  "vehicle": {
+    "profileId": "coach-bus",
+    "class": "coach",
+    "hardwareModel": "long-distance-coach",
+    "passengerCapacity": 52,
+    "accessibility": {
+      "wheelchairSpaces": 0,
+      "bikeRack": true
+    }
+  }
+}

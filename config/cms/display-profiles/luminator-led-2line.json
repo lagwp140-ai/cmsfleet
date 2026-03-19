@@ -1,0 +1,15 @@
+{
+  "ledDisplay": {
+    "profileId": "luminator-led-2line",
+    "provider": "luminator",
+    "controller": "serial-bridge",
+    "brightness": 70,
+    "destinationTemplate": "{routeShortName} {destination}",
+    "mappings": {
+      "front": "routeShortName:destination",
+      "side": "routeShortName:destination",
+      "rear": "routeShortName",
+      "interior": "destination"
+    }
+  }
+}

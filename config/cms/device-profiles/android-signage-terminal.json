@@ -1,0 +1,12 @@
+{
+  "device": {
+    "profileId": "android-signage-terminal",
+    "platform": "android-terminal",
+    "operatingSystem": "android",
+    "connectivity": {
+      "gps": true,
+      "cellular": true,
+      "wifi": false
+    }
+  }
+}

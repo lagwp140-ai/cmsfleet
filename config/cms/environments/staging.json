@@ -1,0 +1,24 @@
+{
+  "selection": {
+    "environment": "staging"
+  },
+  "runtime": {
+    "observability": {
+      "logLevel": "info"
+    }
+  },
+  "auth": {
+    "bootstrapUsersEnabled": false,
+    "session": {
+      "secureCookies": true
+    }
+  },
+  "gtfs": {
+    "realtime": {
+      "enabled": true,
+      "tripUpdatesUrl": "https://staging.example.invalid/gtfs/trip-updates",
+      "vehiclePositionsUrl": "https://staging.example.invalid/gtfs/vehicle-positions",
+      "alertsUrl": "https://staging.example.invalid/gtfs/alerts"
+    }
+  }
+}

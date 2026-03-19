@@ -1,0 +1,13 @@
+{
+  "selection": {
+    "environment": "local"
+  },
+  "runtime": {
+    "observability": {
+      "logLevel": "debug"
+    }
+  },
+  "gps": {
+    "simulate": true
+  }
+}

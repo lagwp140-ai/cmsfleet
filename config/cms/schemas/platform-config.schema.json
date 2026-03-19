@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cmsfleet.local/schemas/platform-config.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "selection",
+    "runtime",
+    "auth",
+    "tenant",
+    "transport",
+    "vehicle",
+    "device",
+    "gps",
+    "ledDisplay",
+    "gtfs",
+    "branding",
+    "featureFlags"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "tenantProfile", "transportProfile", "vehicleProfile", "deviceProfile", "displayProfile"],
+      "properties": {
+        "environment": { "type": "string", "enum": ["local", "test", "staging", "production"] },
+        "tenantProfile": { "type": "string", "minLength": 1 },
+        "transportProfile": { "type": "string", "minLength": 1 },
+        "vehicleProfile": { "type": "string", "minLength": 1 },
+        "deviceProfile": { "type": "string", "minLength": 1 },
+        "displayProfile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "worker", "observability", "database"],
+      "properties": {
+        "api": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["port", "corsOrigins"],
+          "properties": {
+            "port": { "type": "integer", "minimum": 1 },
+            "corsOrigins": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "worker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pollIntervalMs"],
+          "properties": {
+            "pollIntervalMs": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "observability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["logLevel"],
+          "properties": {
+            "logLevel": { "type": "string", "enum": ["fatal", "error", "warn", "info", "debug", "trace"] }
+          }
+        },
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url"],
+          "properties": {
+            "url": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bootstrapUsersEnabled", "passwordPolicy", "rbac", "session"],
+      "properties": {
+        "bootstrapUsersEnabled": { "type": "boolean" },
+        "passwordPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "iterations", "keyLength", "minLength", "saltLength"],
+          "properties": {
+            "algorithm": { "type": "string", "const": "pbkdf2_sha512" },
+            "iterations": { "type": "integer", "minimum": 100000 },
+            "keyLength": { "type": "integer", "minimum": 32 },
+            "minLength": { "type": "integer", "minimum": 8 },
+            "saltLength": { "type": "integer", "minimum": 16 }
+          }
+        },
+        "rbac": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["roles"],
+          "properties": {
+            "roles": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["super_admin", "dispatcher", "operator", "viewer"],
+              "properties": {
+                "super_admin": { "$ref": "#/$defs/roleDefinition" },
+                "dispatcher": { "$ref": "#/$defs/roleDefinition" },
+                "operator": { "$ref": "#/$defs/roleDefinition" },
+                "viewer": { "$ref": "#/$defs/roleDefinition" }
+              }
+            }
+          }
+        },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cookieName", "maxAgeMinutes", "secret", "secureCookies"],
+          "properties": {
+            "cookieName": { "type": "string", "minLength": 1 },
+            "maxAgeMinutes": { "type": "integer", "minimum": 1 },
+            "secret": { "type": "string", "minLength": 16 },
+            "secureCookies": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "locale", "timezone"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "displayName": { "type": "string", "minLength": 1 },
+        "locale": { "type": "string", "minLength": 1 },
+        "timezone": { "type": "string", "minLength": 1 }
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "serviceArea", "routeStrategy"],
+      "properties": {
+        "mode": { "type": "string", "minLength": 1 },
+        "serviceArea": { "type": "string", "minLength": 1 },
+        "routeStrategy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "fallbackDestination", "preferRealtimeTripUpdates"],
+          "properties": {
+            "type": { "type": "string", "minLength": 1 },
+            "fallbackDestination": { "type": "string", "minLength": 1 },
+            "preferRealtimeTripUpdates": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "class", "hardwareModel", "passengerCapacity", "accessibility"],
+      "properties": {
+        "profileId": { "type": "string", "minLength": 1 },
+        "class": { "type": "string", "minLength": 1 },
+        "hardwareModel": { "type": "string", "minLength": 1 },
+        "passengerCapacity": { "type": "integer", "minimum": 1 },
+        "accessibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wheelchairSpaces", "bikeRack"],
+          "properties": {
+            "wheelchairSpaces": { "type": "integer", "minimum": 0 },
+            "bikeRack": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "platform", "operatingSystem", "connectivity"],
+      "properties": {
+        "profileId": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "operatingSystem": { "type": "string", "minLength": 1 },
+        "connectivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gps", "cellular", "wifi"],
+          "properties": {
+            "gps": { "type": "boolean" },
+            "cellular": { "type": "boolean" },
+            "wifi": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "gps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "sourceType", "endpoint", "pollIntervalMs", "freshnessThresholdSeconds", "vehicleIdField", "simulate"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "sourceType": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "minLength": 1 },
+        "pollIntervalMs": { "type": "integer", "minimum": 1 },
+        "freshnessThresholdSeconds": { "type": "integer", "minimum": 1 },
+        "vehicleIdField": { "type": "string", "minLength": 1 },
+        "simulate": { "type": "boolean" }
+      }
+    },
+    "ledDisplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileId", "provider", "controller", "brightness", "destinationTemplate", "mappings"],
+      "properties": {
+        "profileId": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "controller": { "type": "string", "minLength": 1 },
+        "brightness": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "destinationTemplate": { "type": "string", "minLength": 1 },
+        "mappings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["front", "side", "rear", "interior"],
+          "properties": {
+            "front": { "type": "string", "minLength": 1 },
+            "side": { "type": "string", "minLength": 1 },
+            "rear": { "type": "string", "minLength": 1 },
+            "interior": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "gtfs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "agencyId", "timezone", "staticFeedUrl", "realtime"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "agencyId": { "type": "string", "minLength": 1 },
+        "timezone": { "type": "string", "minLength": 1 },
+        "staticFeedUrl": { "type": "string", "minLength": 1 },
+        "realtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "tripUpdatesUrl", "vehiclePositionsUrl", "alertsUrl"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "tripUpdatesUrl": { "type": ["string", "null"] },
+            "vehiclePositionsUrl": { "type": ["string", "null"] },
+            "alertsUrl": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicationName", "operatorName", "locale", "palette", "assets"],
+      "properties": {
+        "applicationName": { "type": "string", "minLength": 1 },
+        "operatorName": { "type": "string", "minLength": 1 },
+        "locale": { "type": "string", "minLength": 1 },
+        "palette": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primary", "secondary", "surface", "text"],
+          "properties": {
+            "primary": { "type": "string", "minLength": 1 },
+            "secondary": { "type": "string", "minLength": 1 },
+            "surface": { "type": "string", "minLength": 1 },
+            "text": { "type": "string", "minLength": 1 }
+          }
+        },
+        "assets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["logoUrl", "iconUrl"],
+          "properties": {
+            "logoUrl": { "type": "string", "minLength": 1 },
+            "iconUrl": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "featureFlags": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+      "additionalProperties": { "type": "boolean" }
+    }
+  },
+  "$defs": {
+    "roleDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "permissions"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "permissions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "selection": {
+    "environment": "test"
+  },
+  "runtime": {
+    "api": {
+      "port": 3100,
+      "corsOrigins": [
+        "http://localhost:5173"
+      ]
+    },
+    "worker": {
+      "pollIntervalMs": 1000
+    },
+    "observability": {
+      "logLevel": "warn"
+    }
+  },
+  "gps": {
+    "simulate": true
+  }
+}

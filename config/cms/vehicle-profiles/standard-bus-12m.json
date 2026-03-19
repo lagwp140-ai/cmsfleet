@@ -1,0 +1,12 @@
+{
+  "vehicle": {
+    "profileId": "standard-bus-12m",
+    "class": "city-bus",
+    "hardwareModel": "solaris-12m-led",
+    "passengerCapacity": 78,
+    "accessibility": {
+      "wheelchairSpaces": 1,
+      "bikeRack": false
+    }
+  }
+}

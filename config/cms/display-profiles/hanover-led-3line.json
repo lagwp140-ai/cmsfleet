@@ -1,0 +1,15 @@
+{
+  "ledDisplay": {
+    "profileId": "hanover-led-3line",
+    "provider": "hanover",
+    "controller": "ethernet-gateway",
+    "brightness": 82,
+    "destinationTemplate": "{routeShortName} {headsign}",
+    "mappings": {
+      "front": "routeShortName:headsign",
+      "side": "routeShortName:destination:via",
+      "rear": "routeShortName",
+      "interior": "nextStop"
+    }
+  }
+}
