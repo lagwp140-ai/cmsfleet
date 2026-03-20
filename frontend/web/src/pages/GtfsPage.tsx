@@ -25,6 +25,7 @@ import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { TripsTxtPreviewPanel } from "../components/admin/TripsTxtPreviewPanel";
 import { formatConsoleDateTime, formatGtfsOffset } from "../lib/time";
 
 export function GtfsPage() {
@@ -451,6 +452,8 @@ export function GtfsPage() {
               </div>
             </form>
           </Panel>
+
+          <TripsTxtPreviewPanel disabled={!canManageGtfs || isSubmitting} />
 
           <Panel description="Current feed posture and the operating model the CMS uses to preserve known-good schedule versions while allowing manual promotion and rollback." title="Feed posture">
             <div className="detail-list">
