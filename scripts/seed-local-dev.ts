@@ -27,15 +27,21 @@ const SEED = {
 
 loadLocalEnv();
 
-const loaded = loadCmsConfig({
-  cwd: repoRoot,
-  rawEnv: process.env
-});
-const pool = new Pool({
-  connectionString: loaded.config.runtime.database.url
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
 });
 
-try {
+async function main(): Promise<void> {
+  const loaded = loadCmsConfig({
+    cwd: repoRoot,
+    rawEnv: process.env
+  });
+  const pool = new Pool({
+    connectionString: loaded.config.runtime.database.url
+  });
+
+  try {
   await syncProfileCatalogs(pool, loaded.context.configDirectory);
 
   const client = await pool.connect();
@@ -504,8 +510,9 @@ try {
   console.info("Vehicles: BUS-100, BUS-101, BUS-A1");
   console.info("Routes: 24 Central Station - Riverside, A1 Central Station - Airport Terminal");
   console.info("Dataset: demo-city-local-seed");
-} finally {
-  await pool.end();
+  } finally {
+    await pool.end();
+  }
 }
 
 async function readProfileId(
@@ -531,3 +538,4 @@ async function readProfileId(
 
   return row.id;
 }
+

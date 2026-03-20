@@ -16,26 +16,33 @@ interface ParsedArguments {
 
 loadLocalEnv();
 
-const argumentsMap = parseArguments(process.argv.slice(2));
-const apiBaseUrl = argumentsMap.apiBaseUrl ?? readApiBaseUrl();
-const cookie = await login(apiBaseUrl, argumentsMap.email, argumentsMap.password);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
-switch (argumentsMap.command) {
-  case "status":
-    await printStatus(apiBaseUrl, cookie);
-    break;
-  case "watch":
-    for (let index = 0; index < argumentsMap.limit; index += 1) {
+async function main(): Promise<void> {
+  const argumentsMap = parseArguments(process.argv.slice(2));
+  const apiBaseUrl = argumentsMap.apiBaseUrl ?? readApiBaseUrl();
+  const cookie = await login(apiBaseUrl, argumentsMap.email, argumentsMap.password);
+
+  switch (argumentsMap.command) {
+    case "status":
       await printStatus(apiBaseUrl, cookie);
-      if (index < argumentsMap.limit - 1) {
-        await delay(argumentsMap.intervalMs);
+      break;
+    case "watch":
+      for (let index = 0; index < argumentsMap.limit; index += 1) {
+        await printStatus(apiBaseUrl, cookie);
+        if (index < argumentsMap.limit - 1) {
+          await delay(argumentsMap.intervalMs);
+        }
       }
-    }
-    break;
-  case "publish":
-  default:
-    await publishDisplayCommand(apiBaseUrl, cookie, argumentsMap);
-    break;
+      break;
+    case "publish":
+    default:
+      await publishDisplayCommand(apiBaseUrl, cookie, argumentsMap);
+      break;
+  }
 }
 
 async function login(apiBaseUrl: string, email: string, password: string): Promise<string> {
@@ -192,3 +199,4 @@ function parseArguments(argumentsList: string[]): ParsedArguments {
 
   return options;
 }
+
