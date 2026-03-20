@@ -1,0 +1,27 @@
+[Unit]
+Description=cmsfleet Backend API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=buscms
+Group=buscms
+WorkingDirectory=/opt/cmsfleet/current
+EnvironmentFile=-/etc/cmsfleet/backend-api.env
+ExecStart=/usr/bin/npm --workspace @cmsfleet/backend-api run start:prod
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/cmsfleet/current/config /var/log/cmsfleet /var/backups/cmsfleet
+StandardOutput=append:/var/log/cmsfleet/backend-api.log
+StandardError=append:/var/log/cmsfleet/backend-api-error.log
+SyslogIdentifier=cmsfleet-api
+
+[Install]
+WantedBy=multi-user.target

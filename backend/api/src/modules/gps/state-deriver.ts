@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   GpsMovementState,
   GpsOperationalStateExtensions,
   NormalizedGpsMessage,
@@ -92,6 +92,7 @@ export function classifyMovementState(speedKph: number | null, movementThreshold
 
 function buildExtensions(previous: GpsOperationalStateExtensions | null | undefined): GpsOperationalStateExtensions {
   return {
+    eta: previous?.eta ?? null,
     geofence: previous?.geofence ?? null,
     routeProximity: previous?.routeProximity ?? null,
     stopProximity: previous?.stopProximity ?? null,

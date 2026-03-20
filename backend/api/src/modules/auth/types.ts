@@ -11,7 +11,8 @@ export type AuditEventType =
   | "user_created"
   | "user_updated"
   | "user_role_changed"
-  | "user_status_changed";
+  | "user_status_changed"
+  | "csrf_validation_failed";
 
 export interface StoredUser {
   id: string;

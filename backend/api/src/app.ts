@@ -4,12 +4,16 @@ import { Pool } from "pg";
 
 import type { CmsConfig, ConfigRuntimeContext } from "@cmsfleet/config-runtime";
 
+import { registerApiInfrastructure } from "./lib/api/runtime.js";
+import { getRoutePattern, measureNow, ObservabilityRegistry } from "./lib/observability/service.js";
+import { registerSecurityHardening } from "./lib/security/runtime.js";
 import { registerAuthModule } from "./modules/auth/module.js";
 import { registerConfigModule } from "./modules/config/module.js";
 import { registerDiagnosticsModule } from "./modules/diagnostics/module.js";
 import { registerDisplaysModule } from "./modules/displays/module.js";
 import { registerGpsModule } from "./modules/gps/module.js";
 import { registerGtfsModule } from "./modules/gtfs/module.js";
+import { registerPlatformModule } from "./modules/platform/module.js";
 import { registerRoutesModule } from "./modules/routes/module.js";
 import { registerVehiclesModule } from "./modules/vehicles/module.js";
 
@@ -17,24 +21,110 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
   const app = Fastify({
     logger: {
       level: config.runtime.observability.logLevel
-    }
+    },
+    trustProxy: config.runtime.api.trustProxy
   });
   const db = new Pool({
     connectionString: config.runtime.database.url
   });
+  const observability = new ObservabilityRegistry(app.log, context, config);
 
   db.on("error", (error: Error) => {
     app.log.error({ err: error }, "PostgreSQL pool error");
+    observability.incrementCounter("database_pool_errors_total");
   });
 
   app.decorate("db", db);
+  app.decorate("observability", observability);
+
+  app.addHook("onRequest", async (request) => {
+    request.observabilityStartMs = measureNow();
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    const startedAt = request.observabilityStartMs ?? measureNow();
+    const durationMs = Math.max(0, measureNow() - startedAt);
+    const routePattern = getRoutePattern((request.routeOptions as { url?: string } | undefined)?.url ?? request.url);
+
+    observability.observeRequest({
+      durationMs,
+      method: request.method,
+      route: routePattern,
+      statusCode: reply.statusCode
+    });
+
+    const logPayload = {
+      durationMs: Number(durationMs.toFixed(2)),
+      method: request.method,
+      path: routePattern,
+      remoteAddress: request.ip,
+      requestId: request.id,
+      statusCode: reply.statusCode
+    };
+
+    if (reply.statusCode >= 500) {
+      request.log.error(logPayload, "HTTP request completed with server error");
+      return;
+    }
+
+    if (reply.statusCode >= 400) {
+      request.log.warn(logPayload, "HTTP request completed with client error");
+      return;
+    }
+
+    request.log.info(logPayload, "HTTP request completed");
+  });
 
   app.addHook("onClose", async () => {
     await db.end();
   });
 
+  registerApiInfrastructure(app, config, context);
+  registerSecurityHardening(app, config);
+
+  observability.registerComponentProvider("api", async () => ({
+    details: {
+      environment: config.selection.environment,
+      service: context.serviceName,
+      tenant: config.tenant.id
+    },
+    kind: "api",
+    message: "API process is running.",
+    metrics: {
+      api_uptime_seconds: Number(process.uptime().toFixed(3))
+    },
+    readiness: true,
+    status: "pass"
+  }));
+
+  observability.registerComponentProvider("database", async () => {
+    const startedAt = measureNow();
+    await db.query("SELECT 1");
+    const latencyMs = Math.max(0, measureNow() - startedAt);
+
+    return {
+      details: {
+        idleClients: db.idleCount,
+        totalClients: db.totalCount,
+        waitingClients: db.waitingCount
+      },
+      kind: "dependency",
+      message: "Database connection pool is healthy.",
+      metrics: {
+        database_idle_clients: db.idleCount,
+        database_latency_ms: Number(latencyMs.toFixed(2)),
+        database_total_clients: db.totalCount,
+        database_waiting_clients: db.waitingCount
+      },
+      readiness: true,
+      status: db.waitingCount > 20 ? "warn" : "pass"
+    };
+  });
+
   await app.register(cors, {
+    allowedHeaders: ["Content-Type", config.auth.csrf.headerName],
     credentials: true,
+    exposedHeaders: [config.auth.csrf.headerName, "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     origin: config.runtime.api.corsOrigins
   });
 
@@ -44,18 +134,45 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
   await registerDiagnosticsModule(app);
   await registerGpsModule(app, config);
   await registerGtfsModule(app, config);
+  await registerPlatformModule(app, config);
   await registerRoutesModule(app, config);
   await registerDisplaysModule(app, config);
 
-  app.get("/health", async () => ({
-    environment: config.selection.environment,
-    operator: config.branding.operatorName,
-    service: context.serviceName,
-    status: "ok",
-    tenant: config.tenant.id,
-    transportProfile: config.selection.transportProfile,
-    vehicleProfile: config.selection.vehicleProfile
+  app.get("/health/live", { config: { rawResponse: true } }, async () => ({
+    ...observability.getLivenessSummary(),
+    check: "liveness"
   }));
+
+  app.get("/health/ready", { config: { rawResponse: true } }, async (_request, reply) => {
+    const summary = await observability.getReadinessSummary();
+
+    if (!summary.ready) {
+      reply.code(503);
+    }
+
+    return {
+      check: "readiness",
+      ...summary
+    };
+  });
+
+  app.get("/health", { config: { rawResponse: true } }, async (_request, reply) => {
+    const overview = await observability.getOverview();
+
+    if (!overview.readiness.ready) {
+      reply.code(503);
+    }
+
+    return overview;
+  });
+
+  app.get("/metrics", { config: { rawResponse: true } }, async (_request, reply) => {
+    reply.type("text/plain; version=0.0.4; charset=utf-8");
+    return observability.renderMetrics();
+  });
 
   return app;
 }
+
+
+

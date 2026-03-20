@@ -19,6 +19,9 @@ const PROFILE_DIRECTORY_MAP = {
 } satisfies Record<Exclude<keyof ConfigSelection, "environment">, string>;
 
 const DEFAULT_LOCAL_SESSION_SECRET = "local-dev-session-secret-change-me-2026";
+const DEFAULT_LOCAL_CSRF_SECRET = "local-dev-csrf-secret-change-me-2026";
+const RESTRICTED_DATABASE_USERNAMES = new Set(["postgres", "root", "admin", "administrator"]);
+const PLACEHOLDER_DATABASE_PASSWORDS = new Set(["", "postgres", "cmsfleet", "password", "changeme", "admin"]);
 
 export class CmsConfigError extends Error {
   constructor(message: string) {
@@ -214,7 +217,9 @@ function validateResolvedConfig(config: CmsConfig): void {
   const details: string[] = [];
   const isLocal = config.selection.environment === "local";
   const isProduction = config.selection.environment === "production";
+  const isNonLocal = !isLocal;
   const sessionSecret = config.auth.session.secret.trim();
+  const csrfSecret = config.auth.csrf.secret.trim();
 
   if (config.gps.offlineThresholdSeconds <= config.gps.freshnessThresholdSeconds) {
     details.push("/gps/offlineThresholdSeconds: must be greater than freshnessThresholdSeconds.");
@@ -228,12 +233,44 @@ function validateResolvedConfig(config: CmsConfig): void {
     details.push("/runtime/api/corsOrigins: at least one allowed origin is required.");
   }
 
+  if (config.runtime.api.corsOrigins.some((origin) => origin.trim() === "*")) {
+    details.push("/runtime/api/corsOrigins: wildcard origins are not allowed when credentials are enabled.");
+  }
+
+  if (config.runtime.api.rateLimit.generalWindowSeconds < 10) {
+    details.push("/runtime/api/rateLimit/generalWindowSeconds: must be at least 10 seconds.");
+  }
+
+  if (config.runtime.api.rateLimit.loginWindowSeconds < 10) {
+    details.push("/runtime/api/rateLimit/loginWindowSeconds: must be at least 10 seconds.");
+  }
+
+  if (config.runtime.api.rateLimit.mutationWindowSeconds < 10) {
+    details.push("/runtime/api/rateLimit/mutationWindowSeconds: must be at least 10 seconds.");
+  }
+
   if (sessionSecret.length < 32) {
     details.push("/auth/session/secret: use a value with at least 32 characters.");
   }
 
+  if (csrfSecret.length < 32) {
+    details.push("/auth/csrf/secret: use a value with at least 32 characters.");
+  }
+
   if (!isLocal && sessionSecret === DEFAULT_LOCAL_SESSION_SECRET) {
     details.push("/auth/session/secret: non-local environments must override the placeholder session secret.");
+  }
+
+  if (!isLocal && csrfSecret === DEFAULT_LOCAL_CSRF_SECRET) {
+    details.push("/auth/csrf/secret: non-local environments must override the placeholder CSRF secret.");
+  }
+
+  if (config.auth.session.sameSite === "none" && !config.auth.session.secureCookies) {
+    details.push("/auth/session/sameSite: 'none' requires secureCookies to be enabled.");
+  }
+
+  if (!config.auth.csrf.headerName.startsWith("X-")) {
+    details.push("/auth/csrf/headerName: must use an X- prefixed header name.");
   }
 
   if (!isLocal && config.auth.bootstrapUsersEnabled) {
@@ -244,8 +281,67 @@ function validateResolvedConfig(config: CmsConfig): void {
     details.push("/auth/session/secureCookies: production requires secure cookies.");
   }
 
+  validatePasswordPolicy(config, details, isNonLocal);
+  validateDatabaseAccess(config, details, isLocal);
+
   if (details.length > 0) {
     throw new CmsConfigValidationError("CMS configuration failed runtime policy checks.", details);
+  }
+}
+
+function validateDatabaseAccess(config: CmsConfig, details: string[], isLocal: boolean): void {
+  let databaseUrl: URL;
+
+  try {
+    databaseUrl = new URL(config.runtime.database.url);
+  } catch {
+    details.push("/runtime/database/url: must be a valid PostgreSQL connection URL.");
+    return;
+  }
+
+  if (!isLocal) {
+    const username = decodeURIComponent(databaseUrl.username ?? "").trim().toLowerCase();
+    const password = decodeURIComponent(databaseUrl.password ?? "").trim().toLowerCase();
+
+    if (RESTRICTED_DATABASE_USERNAMES.has(username)) {
+      details.push("/runtime/database/url: production-style environments must not run with a superuser database account.");
+    }
+
+    if (PLACEHOLDER_DATABASE_PASSWORDS.has(password)) {
+      details.push("/runtime/database/url: non-local environments must use a non-placeholder database password.");
+    }
+  }
+}
+
+function validatePasswordPolicy(config: CmsConfig, details: string[], isNonLocal: boolean): void {
+  const policy = config.auth.passwordPolicy;
+
+  if (policy.maxLength < policy.minLength) {
+    details.push("/auth/passwordPolicy/maxLength: must be greater than or equal to minLength.");
+  }
+
+  if (policy.maxLength > 256) {
+    details.push("/auth/passwordPolicy/maxLength: must be less than or equal to 256.");
+  }
+
+  if (isNonLocal && policy.minLength < 12) {
+    details.push("/auth/passwordPolicy/minLength: non-local environments require a minimum length of at least 12.");
+  }
+
+  if (isNonLocal && !policy.requireLowercase) {
+    details.push("/auth/passwordPolicy/requireLowercase: non-local environments must require lowercase characters.");
+  }
+
+  if (isNonLocal && !policy.requireUppercase) {
+    details.push("/auth/passwordPolicy/requireUppercase: non-local environments must require uppercase characters.");
+  }
+
+  if (isNonLocal && !policy.requireNumber) {
+    details.push("/auth/passwordPolicy/requireNumber: non-local environments must require numeric characters.");
+  }
+
+  if (isNonLocal && !policy.requireSymbol) {
+    details.push("/auth/passwordPolicy/requireSymbol: non-local environments must require symbol characters.");
   }
 }
 

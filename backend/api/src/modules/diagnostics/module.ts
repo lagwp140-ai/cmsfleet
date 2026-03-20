@@ -8,6 +8,57 @@ const SYSTEM_EVENT_SEVERITIES: SystemEventSeverity[] = ["debug", "info", "warn",
 export async function registerDiagnosticsModule(app: FastifyInstance): Promise<void> {
   const repository = new DiagnosticsRepository(app.db);
 
+  app.observability.registerComponentProvider("system_events", async () => {
+    const recentErrors = await repository.listSystemEvents({
+      limit: 10,
+      severity: "error"
+    });
+    const recentCritical = await repository.listSystemEvents({
+      limit: 10,
+      severity: "critical"
+    });
+    const totalRecent = recentErrors.length + recentCritical.length;
+
+    return {
+      details: {
+        mostRecentCriticalAt: recentCritical[0]?.happenedAt ?? null,
+        mostRecentErrorAt: recentErrors[0]?.happenedAt ?? null,
+        recentCriticalCount: recentCritical.length,
+        recentErrorCount: recentErrors.length
+      },
+      kind: "system",
+      message: totalRecent > 0
+        ? "Recent high-severity system events were recorded."
+        : "No recent high-severity system events were recorded.",
+      metrics: {
+        system_events_recent_critical: recentCritical.length,
+        system_events_recent_error: recentErrors.length
+      },
+      readiness: true,
+      status: recentCritical.length > 0 ? "fail" : recentErrors.length > 0 ? "warn" : "pass"
+    };
+  });
+
+  app.get("/api/admin/observability/overview", async (request, reply) => {
+    const authUser = await app.requirePermission(request, reply, "admin:access");
+
+    if (!authUser) {
+      return;
+    }
+
+    return {
+      overview: await app.observability.getOverview(),
+      recentErrors: await repository.listSystemEvents({
+        limit: 25,
+        severity: "error"
+      }),
+      recentCritical: await repository.listSystemEvents({
+        limit: 25,
+        severity: "critical"
+      })
+    };
+  });
+
   app.get("/api/admin/system-events", async (request, reply) => {
     const authUser = await app.requirePermission(request, reply, "admin:access");
 

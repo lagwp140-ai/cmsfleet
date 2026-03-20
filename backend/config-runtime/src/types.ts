@@ -18,6 +18,16 @@ export interface RuntimeConfig {
   api: {
     port: number;
     corsOrigins: string[];
+    trustProxy: boolean;
+    rateLimit: {
+      enabled: boolean;
+      generalMaxRequests: number;
+      generalWindowSeconds: number;
+      loginMaxAttempts: number;
+      loginWindowSeconds: number;
+      mutationMaxRequests: number;
+      mutationWindowSeconds: number;
+    };
   };
   worker: {
     pollIntervalMs: number;
@@ -41,15 +51,25 @@ export interface AuthConfig {
     algorithm: "pbkdf2_sha512";
     iterations: number;
     keyLength: number;
+    maxLength: number;
     minLength: number;
+    requireLowercase: boolean;
+    requireNumber: boolean;
+    requireSymbol: boolean;
+    requireUppercase: boolean;
     saltLength: number;
   };
   rbac: {
     roles: Record<UserRole, AuthRoleDefinition>;
   };
+  csrf: {
+    headerName: string;
+    secret: string;
+  };
   session: {
     cookieName: string;
     maxAgeMinutes: number;
+    sameSite: "lax" | "strict" | "none";
     secret: string;
     secureCookies: boolean;
   };

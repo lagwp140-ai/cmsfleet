@@ -46,3 +46,8 @@ Schedule-assisted selection depends on versioned GTFS calendar data:
 - Manual route overrides are remapped through the route's stable GTFS identity when a new GTFS dataset is activated, so dispatch intent survives dataset swaps.
 - The current engine is manual-first on purpose. It will not guess a route in auto mode without a later GPS-assisted matcher.
 - GPS-assisted matching should plug in as another strategy step, not as a rewrite of the schedule and persistence model.
+
+## Extension Hook
+
+- `backend/api/src/modules/routes/auto-matchers.ts` now defines the GPS-assisted auto-matching seam.
+- Manual and schedule-assisted resolution remain the stable fallback path until a GPS matcher is intentionally added.

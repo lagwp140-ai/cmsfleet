@@ -2,14 +2,22 @@
 
 Repository-level utility scripts live here.
 
-## Suggested Uses
+## Local Development
 
-- Bootstrap local development prerequisites
-- Validate required tooling versions
-- Run repeatable maintenance tasks
-- Prepare seed data or fixtures later
+The repo now includes a cross-platform local development toolchain:
+
+- `dev-setup.ts`: copies missing `.env` files from the repo templates.
+- `dev-runner.ts`: starts the API, frontend, and worker together with prefixed logs.
+- `run-db-migrations.ts`: applies ordered SQL migrations directly through PostgreSQL without requiring `psql`.
+- `seed-local-dev.ts`: loads demo routes, trips, stops, vehicles, and a GTFS dataset for local work.
+- `mock-gps-sender.ts`: sends repeatable HTTP GPS payloads for the seeded demo vehicles.
+- `mock-display-console.ts`: logs into the admin API, publishes mock LED commands, and watches adapter status.
 
 ## Current Utilities
 
-- [pply-db-migrations.ps1](/c:/Projects/cmsfleet/scripts/apply-db-migrations.ps1): applies ordered .up.sql or .down.sql files with psql using CMS_DATABASE_URL.
-
+- [bootstrap.ps1](/c:/Projects/cmsfleet/scripts/bootstrap.ps1): checks a developer machine for the main local prerequisites.
+- [apply-db-migrations.ps1](/c:/Projects/cmsfleet/scripts/apply-db-migrations.ps1): applies ordered `.up.sql` or `.down.sql` files with `psql` using `CMS_DATABASE_URL`.
+- [run-db-migrations.ts](/c:/Projects/cmsfleet/scripts/run-db-migrations.ts): applies ordered migrations through the `pg` driver for local development.
+- [seed-local-dev.ts](/c:/Projects/cmsfleet/scripts/seed-local-dev.ts): provisions demo fleet and GTFS seed data.
+- [mock-gps-sender.ts](/c:/Projects/cmsfleet/scripts/mock-gps-sender.ts): simulates live GPS updates.
+- [mock-display-console.ts](/c:/Projects/cmsfleet/scripts/mock-display-console.ts): interacts with the mock display adapter through the real API.

@@ -4,7 +4,12 @@ import type { CmsConfig, ConfigRuntimeContext } from "@cmsfleet/config-runtime";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { createBootstrapUsers, DEVELOPMENT_BOOTSTRAP_PASSWORD } from "./bootstrap-users.js";
-import { generateTemporaryPassword, hashPassword, verifyPassword } from "./password-hasher.js";
+import {
+  generateTemporaryPassword,
+  hashPassword,
+  validatePasswordPolicy,
+  verifyPassword
+} from "./password-hasher.js";
 import { PostgresAuthStore } from "./postgres-store.js";
 import { getRolePermissions, hasPermission } from "./rbac.js";
 import type { AuditEventFilters, AuthStore, ManagedUserFilters } from "./store.js";
@@ -17,10 +22,16 @@ interface ManagedUserMutationBody {
   status: UserAccountStatus;
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_DISPLAY_NAME_LENGTH = 80;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_INPUT_LENGTH = 256;
+
 export async function registerAuthModule(
   app: FastifyInstance,
   config: CmsConfig,
-  _context: ConfigRuntimeContext
+  _context: ConfigRuntimeContext,
+  dependencies: { store?: AuthStore } = {}
 ): Promise<void> {
   const bootstrapUsers = config.auth.bootstrapUsersEnabled ? createBootstrapUsers() : [];
   const publicBootstrapUsers =
@@ -31,7 +42,7 @@ export async function registerAuthModule(
           role: user.role
         }))
       : [];
-  const store: AuthStore = new PostgresAuthStore(app.db);
+  const store: AuthStore = dependencies.store ?? new PostgresAuthStore(app.db);
 
   await store.init();
   await store.upsertBootstrapUsers(bootstrapUsers);
@@ -39,12 +50,8 @@ export async function registerAuthModule(
   async function authenticateRequest(
     request: FastifyRequest,
     reply: FastifyReply,
-    options: { optional?: boolean } = {}
+    options: { optional?: boolean; skipCsrf?: boolean } = {}
   ): Promise<SessionUser | undefined> {
-    if (request.authUser) {
-      return request.authUser;
-    }
-
     const token = readSessionToken(request, config);
 
     if (!token) {
@@ -53,6 +60,19 @@ export async function registerAuthModule(
       }
 
       return undefined;
+    }
+
+    if (request.authUser) {
+      if (!options.skipCsrf) {
+        const csrfAccepted = await ensureCsrfProtection(app, store, request, reply, config, request.authUser, token);
+
+        if (!csrfAccepted) {
+          return undefined;
+        }
+      }
+
+      attachCsrfHeader(reply, config, token);
+      return request.authUser;
     }
 
     const tokenHash = hashSessionToken(token, config.auth.session.secret);
@@ -85,6 +105,15 @@ export async function registerAuthModule(
     request.authTokenHash = tokenHash;
     request.authUser = authUser;
 
+    if (!options.skipCsrf) {
+      const csrfAccepted = await ensureCsrfProtection(app, store, request, reply, config, authUser, token);
+
+      if (!csrfAccepted) {
+        return undefined;
+      }
+    }
+
+    attachCsrfHeader(reply, config, token);
     return authUser;
   }
 
@@ -114,6 +143,7 @@ export async function registerAuthModule(
     bootstrapPasswordHint:
       publicBootstrapUsers.length > 0 ? DEVELOPMENT_BOOTSTRAP_PASSWORD : undefined,
     bootstrapUsers: publicBootstrapUsers,
+    passwordMaxLength: config.auth.passwordPolicy.maxLength,
     passwordMinLength: config.auth.passwordPolicy.minLength
   }));
 
@@ -198,6 +228,7 @@ export async function registerAuthModule(
     });
 
     setSessionCookie(reply, config, sessionToken);
+    attachCsrfHeader(reply, config, sessionToken);
 
     await recordAudit(app, store, {
       actorEmail: user.email,
@@ -219,6 +250,11 @@ export async function registerAuthModule(
 
   app.post("/api/auth/logout", async (request, reply) => {
     const authUser = await authenticateRequest(request, reply, { optional: true });
+
+    if (reply.sent) {
+      return;
+    }
+
     const token = readSessionToken(request, config);
 
     if (token) {
@@ -260,9 +296,16 @@ export async function registerAuthModule(
       return reply.code(400).send({ message: toErrorMessage(error, "Invalid password payload.") });
     }
 
-    if (body.nextPassword.length < config.auth.passwordPolicy.minLength) {
+    const passwordIssues = validatePasswordPolicy(body.nextPassword, config.auth.passwordPolicy);
+
+    if (body.currentPassword === body.nextPassword) {
+      passwordIssues.push("New password must be different from the current password.");
+    }
+
+    if (passwordIssues.length > 0) {
       return reply.code(400).send({
-        message: `Password must be at least ${config.auth.passwordPolicy.minLength} characters long.`
+        details: passwordIssues,
+        message: "Password does not meet the configured policy."
       });
     }
 
@@ -304,6 +347,7 @@ export async function registerAuthModule(
     request.authTokenHash = sessionTokenHash;
     request.authUser = buildSessionUser(config, updatedUser);
     setSessionCookie(reply, config, sessionToken);
+    attachCsrfHeader(reply, config, sessionToken);
 
     await recordAudit(app, store, {
       actorEmail: updatedUser.email,
@@ -331,6 +375,7 @@ export async function registerAuthModule(
 
     return {
       auth: {
+        passwordMaxLength: config.auth.passwordPolicy.maxLength,
         passwordMinLength: config.auth.passwordPolicy.minLength,
         roleLabel: config.auth.rbac.roles[authUser.role].label
       },
@@ -396,7 +441,7 @@ export async function registerAuthModule(
       return reply.code(409).send({ message: "A user with that email already exists." });
     }
 
-    const temporaryPassword = generateTemporaryPassword(config.auth.passwordPolicy.minLength);
+    const temporaryPassword = generateTemporaryPassword(config.auth.passwordPolicy);
     const passwordHash = await hashPassword(temporaryPassword, config.auth.passwordPolicy);
     const createdUser = await store.createUser({
       displayName: body.displayName,
@@ -570,7 +615,7 @@ export async function registerAuthModule(
       return reply.code(400).send({ message: "Use the self-service password change flow for your own account." });
     }
 
-    const temporaryPassword = generateTemporaryPassword(config.auth.passwordPolicy.minLength);
+    const temporaryPassword = generateTemporaryPassword(config.auth.passwordPolicy);
     const passwordHash = await hashPassword(temporaryPassword, config.auth.passwordPolicy);
     const updatedUser = await store.updateUserPassword(existingUser.id, passwordHash, true);
 
@@ -629,6 +674,10 @@ export async function registerAuthModule(
   });
 }
 
+function attachCsrfHeader(reply: FastifyReply, config: CmsConfig, sessionToken: string): void {
+  reply.header(config.auth.csrf.headerName, deriveCsrfToken(sessionToken, config.auth.csrf.secret));
+}
+
 function buildSessionUser(config: CmsConfig, user: StoredUser): SessionUser {
   return {
     displayName: user.displayName,
@@ -644,8 +693,12 @@ function buildSessionUser(config: CmsConfig, user: StoredUser): SessionUser {
 function clearSessionCookie(reply: FastifyReply, config: CmsConfig): void {
   reply.header(
     "Set-Cookie",
-    serializeCookie(config.auth.session.cookieName, "", config.auth.session.secureCookies, 0)
+    serializeCookie(config.auth.session.cookieName, "", config, 0)
   );
+}
+
+function deriveCsrfToken(sessionToken: string, secret: string): string {
+  return createHmac("sha256", secret).update(sessionToken).digest("base64url");
 }
 
 async function ensureActiveSuperAdminRetained(
@@ -670,6 +723,58 @@ async function ensureActiveSuperAdminRetained(
 
   if (remainingActiveSuperAdmins.length === 0) {
     throw new Error("At least one active super_admin account must remain available.");
+  }
+}
+
+async function ensureCsrfProtection(
+  app: FastifyInstance,
+  store: AuthStore,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  config: CmsConfig,
+  authUser: SessionUser,
+  sessionToken: string
+): Promise<boolean> {
+  if (!shouldValidateCsrf(request.method)) {
+    return true;
+  }
+
+  const actualToken = readHeaderValue(request.headers, config.auth.csrf.headerName);
+  const expectedToken = deriveCsrfToken(sessionToken, config.auth.csrf.secret);
+
+  if (actualToken === expectedToken) {
+    return true;
+  }
+
+  const client = getClientMetadata(request);
+  await recordAudit(app, store, {
+    actorEmail: authUser.email,
+    actorUserId: authUser.id,
+    email: authUser.email,
+    ...client,
+    metadata: {
+      csrfHeaderName: config.auth.csrf.headerName
+    },
+    reason: "missing_or_invalid_token",
+    role: authUser.role,
+    success: false,
+    type: "csrf_validation_failed",
+    userId: authUser.id
+  });
+
+  reply.code(403).send({ message: "CSRF validation failed." });
+  return false;
+}
+
+function formatSameSiteValue(value: CmsConfig["auth"]["session"]["sameSite"]): string {
+  switch (value) {
+    case "strict":
+      return "Strict";
+    case "none":
+      return "None";
+    case "lax":
+    default:
+      return "Lax";
   }
 }
 
@@ -715,7 +820,8 @@ function isAuditEventType(value: unknown): value is AuditEventType {
     || value === "user_created"
     || value === "user_updated"
     || value === "user_role_changed"
-    || value === "user_status_changed";
+    || value === "user_status_changed"
+    || value === "csrf_validation_failed";
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -746,6 +852,12 @@ function readAuditFilters(query: unknown): AuditEventFilters {
   return { search, success, type, userId };
 }
 
+function readHeaderValue(headers: FastifyRequest["headers"], headerName: string): string | undefined {
+  const headerValue = headers[headerName.toLowerCase()];
+  const normalized = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  return typeof normalized === "string" && normalized.trim() !== "" ? normalized.trim() : undefined;
+}
+
 function readLimit(request: FastifyRequest): number {
   const query = request.query as { limit?: number | string };
   const rawLimit = query?.limit;
@@ -763,11 +875,19 @@ function readLoginBody(body: unknown): { email: string; password: string } {
     throw new Error("Invalid login payload.");
   }
 
-  const email = typeof body.email === "string" ? body.email.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
 
-  if (email === "" || password === "") {
-    throw new Error("Email and password are required.");
+  if (!isValidEmail(email)) {
+    throw new Error("A valid email address is required.");
+  }
+
+  if (password === "") {
+    throw new Error("Password is required.");
+  }
+
+  if (password.length > MAX_PASSWORD_INPUT_LENGTH) {
+    throw new Error(`Password must be at most ${MAX_PASSWORD_INPUT_LENGTH} characters long.`);
   }
 
   return { email, password };
@@ -799,7 +919,11 @@ function readManagedUserMutationBody(body: unknown): ManagedUserMutationBody {
     throw new Error("Display name is required.");
   }
 
-  if (email === "" || !email.includes("@")) {
+  if (displayName.length > MAX_DISPLAY_NAME_LENGTH) {
+    throw new Error(`Display name must be at most ${MAX_DISPLAY_NAME_LENGTH} characters long.`);
+  }
+
+  if (!isValidEmail(email)) {
     throw new Error("A valid email address is required.");
   }
 
@@ -851,6 +975,10 @@ function readPasswordChangeBody(body: unknown): { currentPassword: string; nextP
     throw new Error("Current and next password are required.");
   }
 
+  if (currentPassword.length > MAX_PASSWORD_INPUT_LENGTH || nextPassword.length > MAX_PASSWORD_INPUT_LENGTH) {
+    throw new Error(`Passwords must be at most ${MAX_PASSWORD_INPUT_LENGTH} characters long.`);
+  }
+
   return { currentPassword, nextPassword };
 }
 
@@ -882,9 +1010,13 @@ function readUserParams(params: unknown): { userId: string } {
     throw new Error("User id is required.");
   }
 
-  return {
-    userId: params.userId.trim()
-  };
+  const userId = params.userId.trim();
+
+  if (userId.length > 64) {
+    throw new Error("User id is invalid.");
+  }
+
+  return { userId };
 }
 
 async function recordAudit(
@@ -917,18 +1049,18 @@ async function recordAudit(
 function serializeCookie(
   cookieName: string,
   value: string,
-  secureCookies: boolean,
+  config: CmsConfig,
   maxAgeSeconds: number
 ): string {
   const segments = [
     `${cookieName}=${encodeURIComponent(value)}`,
     "HttpOnly",
     "Path=/",
-    "SameSite=Lax",
+    `SameSite=${formatSameSiteValue(config.auth.session.sameSite)}`,
     `Max-Age=${maxAgeSeconds}`
   ];
 
-  if (secureCookies) {
+  if (config.auth.session.secureCookies) {
     segments.push("Secure");
   }
 
@@ -941,10 +1073,15 @@ function setSessionCookie(reply: FastifyReply, config: CmsConfig, sessionToken: 
     serializeCookie(
       config.auth.session.cookieName,
       sessionToken,
-      config.auth.session.secureCookies,
+      config,
       config.auth.session.maxAgeMinutes * 60
     )
   );
+}
+
+function shouldValidateCsrf(method: string): boolean {
+  const normalizedMethod = method.toUpperCase();
+  return normalizedMethod === "POST" || normalizedMethod === "PUT" || normalizedMethod === "PATCH" || normalizedMethod === "DELETE";
 }
 
 function toErrorMessage(error: unknown, fallback: string): string {
@@ -954,4 +1091,8 @@ function toErrorMessage(error: unknown, fallback: string): string {
 function toManagedUser(user: StoredUser): Omit<StoredUser, "passwordHash"> {
   const { passwordHash: _passwordHash, ...safeUser } = user;
   return safeUser;
+}
+
+function isValidEmail(value: string): boolean {
+  return value.length > 0 && value.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value);
 }

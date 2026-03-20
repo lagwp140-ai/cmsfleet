@@ -5,6 +5,9 @@
   "runtime": {
     "observability": {
       "logLevel": "info"
+    },
+    "api": {
+      "trustProxy": true
     }
   },
   "auth": {

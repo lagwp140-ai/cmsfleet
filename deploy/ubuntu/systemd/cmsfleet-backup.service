@@ -1,0 +1,20 @@
+[Unit]
+Description=cmsfleet Backup Job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=buscms
+Group=buscms
+WorkingDirectory=/opt/cmsfleet/current
+EnvironmentFile=-/etc/cmsfleet/backend-api.env
+ExecStart=/opt/cmsfleet/current/deploy/ubuntu/scripts/run-backup.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/cmsfleet /opt/cmsfleet/current/config
+StandardOutput=append:/var/log/cmsfleet/backup.log
+StandardError=append:/var/log/cmsfleet/backup-error.log
+SyslogIdentifier=cmsfleet-backup

@@ -9,7 +9,8 @@ export type AuditEventType =
   | "user_created"
   | "user_updated"
   | "user_role_changed"
-  | "user_status_changed";
+  | "user_status_changed"
+  | "csrf_validation_failed";
 
 export interface SessionUser {
   displayName: string;
@@ -35,6 +36,7 @@ export interface AuthSessionResponse {
 export interface AuthMetadataResponse {
   bootstrapPasswordHint?: string;
   bootstrapUsers: BootstrapUserSummary[];
+  passwordMaxLength?: number;
   passwordMinLength: number;
 }
 
@@ -45,6 +47,7 @@ export interface LoginResponse {
 
 export interface AdminDashboardResponse {
   auth: {
+    passwordMaxLength?: number;
     passwordMinLength: number;
     roleLabel: string;
   };

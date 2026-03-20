@@ -1,6 +1,7 @@
 import type { CmsConfig } from "@cmsfleet/config-runtime";
 import type { FastifyBaseLogger } from "fastify";
 
+import { createDefaultRouteAutoMatchers, resolveRouteAutoMatch, type RouteAutoMatcher } from "./auto-matchers.js";
 import { RouteResolutionRepository } from "./repository.js";
 import type {
   NextStopCandidate,
@@ -33,7 +34,8 @@ export class RouteResolutionService {
   constructor(
     private readonly config: CmsConfig,
     private readonly logger: FastifyBaseLogger,
-    private readonly repository: RouteResolutionRepository
+    private readonly repository: RouteResolutionRepository,
+    private readonly autoMatchers: readonly RouteAutoMatcher[] = createDefaultRouteAutoMatchers()
   ) {}
 
   async getStatus(referenceTime = new Date().toISOString()): Promise<RouteResolutionStatusResponse> {
@@ -80,7 +82,7 @@ export class RouteResolutionService {
     const timezone = this.config.gtfs.timezone || this.config.tenant.timezone;
     const currentLocal = getTimeZoneParts(referenceTime, timezone);
     const baseMetadata: Record<string, unknown> = {
-      gpsAssistedMatching: "planned",
+      gpsAssistedMatching: this.autoMatchers.length > 0 ? "extension_point_configured" : "extension_point_reserved",
       lastSeenAt: vehicle.lastSeenAt,
       manualRouteUpdatedAt: vehicle.manualRouteUpdatedAt,
       positionTime: vehicle.positionTime,
@@ -182,10 +184,41 @@ export class RouteResolutionService {
       });
     }
 
+    const autoMatch = await resolveRouteAutoMatch(this.autoMatchers, {
+      config: this.config,
+      evaluatedAt,
+      logger: this.logger,
+      referenceTime,
+      timeZone: timezone,
+      vehicle
+    });
+
+    if (autoMatch) {
+      return buildResolvedVehicle(vehicle, {
+        directionId: autoMatch.match.directionId,
+        evaluatedAt,
+        metadata: {
+          ...baseMetadata,
+          autoMatcherId: autoMatch.matcherId,
+          matchingMode: "gps_assisted_auto_match",
+          ...(autoMatch.match.metadata ?? {})
+        },
+        nextStop: autoMatch.match.nextStop ?? null,
+        referenceSeconds: currentLocal.secondsOfDay,
+        referenceTime,
+        resolutionSource: "gps_assisted",
+        route: autoMatch.match.route,
+        routeState: autoMatch.match.routeState,
+        serviceDate: autoMatch.match.serviceDate,
+        trip: autoMatch.match.trip ?? undefined
+      });
+    }
+
     return buildResolvedVehicle(vehicle, {
       evaluatedAt,
       metadata: {
         ...baseMetadata,
+        availableAutoMatchers: this.autoMatchers.map((matcher) => matcher.id),
         matchingMode: "awaiting_gps_assisted_matching"
       },
       referenceSeconds: currentLocal.secondsOfDay,

@@ -1,0 +1,14 @@
+/var/log/cmsfleet/*.log {
+    daily
+    rotate 14
+    missingok
+    compress
+    delaycompress
+    notifempty
+    create 0640 buscms buscms
+    sharedscripts
+    postrotate
+        /bin/systemctl kill -s SIGUSR1 cmsfleet-api.service >/dev/null 2>&1 || true
+        /bin/systemctl kill -s SIGUSR1 cmsfleet-worker.service >/dev/null 2>&1 || true
+    endscript
+}

@@ -9,7 +9,7 @@ declare module "fastify" {
     authenticateRequest: (
       request: FastifyRequest,
       reply: FastifyReply,
-      options?: { optional?: boolean }
+      options?: { optional?: boolean; skipCsrf?: boolean }
     ) => Promise<SessionUser | undefined>;
     db: Pool;
     requirePermission: (

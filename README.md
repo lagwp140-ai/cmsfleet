@@ -128,15 +128,40 @@ The platform now includes a versioned GTFS control path for route and trip data:
 - rollback to a previously retained dataset without deleting historical versions
 - import history and validation reporting in [`frontend/web/src/pages/GtfsPage.tsx`](/c:/Projects/cmsfleet/frontend/web/src/pages/GtfsPage.tsx)
 - pipeline documentation in [`docs/architecture/gtfs-import-pipeline.md`](/c:/Projects/cmsfleet/docs/architecture/gtfs-import-pipeline.md)
+
+## Production Deployment Layout
+
+Ubuntu 22.04+ deployment assets now live under [deploy/ubuntu](/c:/Projects/cmsfleet/deploy/ubuntu/README.md). That layout includes:
+
+- systemd units for the backend API, worker, and backup timer
+- Nginx reverse proxy configuration for the API and frontend
+- production environment file templates under `/etc/cmsfleet`
+- shell scripts for build, deploy, systemd installation, Nginx installation, and backups
+- file-log conventions under `/var/log/cmsfleet` plus a logrotate policy
+
+## Local Development Tooling
+
+The repository now includes a developer-first local workflow for bringing up the platform quickly:
+
+- Docker-based PostgreSQL plus Adminer from [deploy/docker-compose.dev.yml](/c:/Projects/cmsfleet/deploy/docker-compose.dev.yml)
+- direct PostgreSQL migration runner in [scripts/run-db-migrations.ts](/c:/Projects/cmsfleet/scripts/run-db-migrations.ts)
+- demo fleet and GTFS seeding in [scripts/seed-local-dev.ts](/c:/Projects/cmsfleet/scripts/seed-local-dev.ts)
+- parallel API, frontend, and worker startup through [scripts/dev-runner.ts](/c:/Projects/cmsfleet/scripts/dev-runner.ts)
+- mock GPS traffic generation from [scripts/mock-gps-sender.ts](/c:/Projects/cmsfleet/scripts/mock-gps-sender.ts)
+- mock display queue publishing and watch tooling from [scripts/mock-display-console.ts](/c:/Projects/cmsfleet/scripts/mock-display-console.ts)
+
+The full onboarding flow is documented in [docs/architecture/local-development.md](/c:/Projects/cmsfleet/docs/architecture/local-development.md).
+
 ## Getting Started
 
-1. Install Node.js 22.x, npm 10.x, PostgreSQL 16+, and Java 21.
-2. Copy the root and service-level `.env.example` files into real `.env` files.
-3. Start PostgreSQL locally or via [`deploy/docker-compose.dev.yml`](/c:/Projects/cmsfleet/deploy/docker-compose.dev.yml).
-4. Apply the database migrations described in [`backend/api/db/README.md`](/c:/Projects/cmsfleet/backend/api/db/README.md).
-5. Run `npm install` from the repository root.
-6. Validate config resolution with `npm run config:validate`.
-7. Start the API with `npm run dev:api` and the frontend with `npm run dev:web`.
+1. Install Node.js 22.x, npm 10.x, Docker, and Java 21.
+2. Run `npm install` from the repository root.
+3. Prepare local env files with `npm run dev:setup`.
+4. Start PostgreSQL and Adminer with `npm run dev:stack:up`.
+5. Apply the database schema with `npm run dev:db:migrate`.
+6. Load demo data with `npm run dev:seed`.
+7. Start the local services with `npm run dev:start`.
+8. Optional: drive telemetry and display flows with `npm run dev:gps:send` and `npm run dev:display:watch`.
 
 ## Working Agreements
 
@@ -161,3 +186,28 @@ The platform now includes a versioned GTFS control path for route and trip data:
 
 
 
+
+## Security Hardening
+
+The platform now includes a baseline production hardening layer:
+
+- secure API response headers and `no-store` caching for admin/auth traffic
+- cookie-session hardening with configurable `SameSite` and derived CSRF protection for mutating requests
+- configurable rate limiting for general API traffic, login attempts, and state-changing requests
+- stronger password policy enforcement with min/max length and character-class requirements
+- fail-fast checks for placeholder secrets and superuser-style PostgreSQL credentials outside local development
+- expanded auth audit coverage, including CSRF validation failures
+
+See [`docs/architecture/security-hardening.md`](/c:/Projects/cmsfleet/docs/architecture/security-hardening.md) for the operating model and remaining gaps.
+
+## Production Observability
+
+The platform now exposes production-oriented observability primitives:
+
+- liveness and readiness probes at `/health/live` and `/health/ready`
+- an aggregated component overview at `/health`
+- Prometheus-style metrics at `/metrics`
+- protected admin observability data at `/api/admin/observability/overview`
+- structured request logs plus component alert events for GPS, GTFS, database, display adapter, and system-failure visibility
+
+Implementation notes live in [`docs/architecture/production-observability.md`](/c:/Projects/cmsfleet/docs/architecture/production-observability.md).

@@ -30,3 +30,7 @@ The platform manages transit-facing CMS concerns such as route content, signage 
 - Prefer module-level ownership over cross-cutting shared abstractions.
 - Validate config and request boundaries early.
 - Keep deployment variance in configuration instead of service forks.
+## Roadmap Readiness
+
+- The API exposes `GET /api/admin/platform/extensions` as a lightweight catalog of active MVP foundations and future extension seams.
+- GPS ingestion, route resolution, and diagnostics now have explicit architecture hooks for MQTT or TCP adapters, GPS-assisted trip matching, stop proximity, ETA, notifications, incidents, and related roadmap modules.

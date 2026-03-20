@@ -8,7 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start:prod": "tsx src/index.ts"
   },
   "dependencies": {
     "@cmsfleet/config-runtime": "0.1.0",

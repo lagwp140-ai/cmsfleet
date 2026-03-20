@@ -1,6 +1,7 @@
 $requirements = @(
   @{ Name = "node"; Command = "node --version" },
   @{ Name = "npm"; Command = "npm --version" },
+  @{ Name = "docker"; Command = "docker --version" },
   @{ Name = "java"; Command = "java --version" }
 )
 
@@ -15,7 +16,10 @@ foreach ($requirement in $requirements) {
   }
 }
 
-Write-Host "Next steps:"
-Write-Host "1. Copy .env.example files into working .env files."
-Write-Host "2. Start PostgreSQL with deploy/docker-compose.dev.yml or your local instance."
-Write-Host "3. Run npm install from the repository root."
+Write-Host "Recommended local bootstrap:"
+Write-Host "1. npm run dev:setup"
+Write-Host "2. npm run dev:stack:up"
+Write-Host "3. npm run dev:db:migrate"
+Write-Host "4. npm run dev:seed"
+Write-Host "5. npm run dev:start"
+Write-Host "Optional mocks: npm run dev:gps:send and npm run dev:display:watch"

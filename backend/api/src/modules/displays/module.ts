@@ -15,7 +15,43 @@ export async function registerDisplaysModule(app: FastifyInstance, config: CmsCo
   const repository = new DisplayRepository(app.db);
   const service = new DisplayDomainService(config, repository);
   const adapter = createDisplayHardwareAdapter(config, app.log);
-  const deliveryService = new DisplayDeliveryService(adapter, app.log);
+  const deliveryService = new DisplayDeliveryService(adapter, app.log, app.observability);
+
+  app.observability.registerComponentProvider("display_adapter", async () => {
+    const overview = await deliveryService.getQueueOverview();
+    const adapterState = overview.adapter.state;
+    const status = adapterState === "unhealthy"
+      ? "fail"
+      : adapterState === "degraded" || overview.retryDepth > 0 || overview.totals.failed > 0
+        ? "warn"
+        : "pass";
+
+    return {
+      details: {
+        activeDeliveryId: overview.activeDeliveryId,
+        adapterId: overview.adapter.adapterId,
+        adapterMessage: overview.adapter.message,
+        lastSuccessfulDeliveryAt: overview.adapter.lastSuccessfulDeliveryAt,
+        queueDepth: overview.queueDepth,
+        retryDepth: overview.retryDepth
+      },
+      kind: "adapter",
+      message: status === "pass"
+        ? "Display adapter and delivery queue are healthy."
+        : status === "warn"
+          ? "Display adapter is operating with retries or recent delivery failures."
+          : "Display adapter is unhealthy.",
+      metrics: {
+        display_adapter_failed_deliveries: overview.totals.failed,
+        display_adapter_pending_deliveries: overview.totals.pending,
+        display_adapter_queue_depth: overview.queueDepth,
+        display_adapter_retry_depth: overview.retryDepth,
+        display_adapter_successful_deliveries: overview.totals.delivered
+      },
+      readiness: true,
+      status
+    };
+  });
 
   app.addHook("onClose", async () => {
     await deliveryService.close();
@@ -68,7 +104,7 @@ export async function registerDisplaysModule(app: FastifyInstance, config: CmsCo
     try {
       return await service.generateCommands(request.body as DisplayCommandRequest);
     } catch (error) {
-      return sendDisplayError(reply, error);
+      return sendDisplayError(app, reply, error);
     }
   });
 
@@ -93,7 +129,7 @@ export async function registerDisplaysModule(app: FastifyInstance, config: CmsCo
       };
       return response;
     } catch (error) {
-      return sendDisplayError(reply, error);
+      return sendDisplayError(app, reply, error);
     }
   });
 
@@ -140,12 +176,12 @@ function readLimit(value: unknown): number {
   return Math.min(Math.trunc(parsed), 100);
 }
 
-function sendDisplayError(reply: FastifyReply, error: unknown) {
+function sendDisplayError(app: FastifyInstance, reply: FastifyReply, error: unknown) {
+  app.observability.incrementCounter("display_operation_failures_total");
+
   if (error instanceof Error && error.message.includes("was not found")) {
     return reply.code(404).send({ message: error.message });
   }
 
   throw error;
 }
-
-

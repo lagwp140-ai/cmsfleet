@@ -3,11 +3,20 @@ import type { VehicleOperationalStatus, VehicleRouteOverrideMode } from "../vehi
 export const GPS_INGEST_STATUSES = ["accepted", "duplicate", "rejected"] as const;
 export const GPS_CONNECTION_STATES = ["online", "stale", "offline", "unknown"] as const;
 export const GPS_MOVEMENT_STATES = ["moving", "stopped", "unknown"] as const;
+export const GPS_INGESTION_ADAPTERS = ["http_json", "mqtt_json", "tcp_json"] as const;
+export const GPS_OPERATIONAL_EXTENSION_SLOTS = [
+  "geofence",
+  "routeProximity",
+  "stopProximity",
+  "tripProgress",
+  "eta"
+] as const;
 
 export type GpsIngestStatus = (typeof GPS_INGEST_STATUSES)[number];
 export type GpsConnectionState = (typeof GPS_CONNECTION_STATES)[number];
 export type GpsMovementState = (typeof GPS_MOVEMENT_STATES)[number];
-export type GpsIngestionAdapter = "http_json";
+export type GpsIngestionAdapter = (typeof GPS_INGESTION_ADAPTERS)[number];
+export type GpsOperationalExtensionSlot = (typeof GPS_OPERATIONAL_EXTENSION_SLOTS)[number];
 
 export interface MatchedVehicleRecord {
   externalVehicleId: string | null;
@@ -64,6 +73,7 @@ export interface GpsIngestionResult {
 }
 
 export interface GpsOperationalStateExtensions {
+  eta: Record<string, unknown> | null;
   geofence: Record<string, unknown> | null;
   routeProximity: Record<string, unknown> | null;
   stopProximity: Record<string, unknown> | null;
@@ -159,4 +169,3 @@ export interface RecentGpsMessageRecord {
   vehicleId: string | null;
   vehicleLabel: string | null;
 }
-

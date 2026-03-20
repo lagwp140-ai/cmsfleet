@@ -9,9 +9,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src",
-    "test": "vitest run --passWithNoTests",
+    "test": "npm run test:unit",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "validate": "tsx src/cli.ts"
+    "validate": "tsx src/cli.ts",
+    "test:unit": "vitest run tests"
   },
   "dependencies": {
     "ajv": "^8.17.1",

@@ -1,0 +1,3 @@
+stop_id,stop_name,stop_lat,stop_lon,stop_code
+STOP1,Central Station,50.4501,30.5234,CEN
+STOP2,River Depot,50.4540,30.5300,RIV

@@ -2,6 +2,7 @@ import type { CmsConfig } from "@cmsfleet/config-runtime";
 import type { FastifyBaseLogger } from "fastify";
 import type { PoolClient } from "pg";
 
+import { applyGpsOperationalEnrichers, createDefaultGpsOperationalEnrichers, type GpsOperationalEnricher } from "./enrichers.js";
 import { GpsPayloadValidationError, normalizeHttpGpsPayload } from "./normalizer.js";
 import { GpsRepository } from "./repository.js";
 import { deriveOperationalState } from "./state-deriver.js";
@@ -12,6 +13,7 @@ import type {
   GpsMessageFilters,
   GpsStatusSummary,
   GpsVehicleStatusRecord,
+  MatchedVehicleRecord,
   NormalizedGpsMessage,
   RecentGpsMessageRecord,
   RejectedGpsMessageInput,
@@ -28,7 +30,8 @@ export class GpsIngestionService {
   constructor(
     private readonly config: CmsConfig,
     private readonly logger: FastifyBaseLogger,
-    private readonly repository: GpsRepository
+    private readonly repository: GpsRepository,
+    private readonly enrichers: readonly GpsOperationalEnricher[] = createDefaultGpsOperationalEnrichers()
   ) {}
 
   async ingestHttpPayload(body: unknown, context: GpsIngestionContext): Promise<{ httpStatus: number; payload: GpsIngestionResult }> {
@@ -154,7 +157,7 @@ export class GpsIngestionService {
       }
     }
 
-    const persisted = await this.persistAcceptedMessage(normalized, vehicle.id);
+    const persisted = await this.persistAcceptedMessage(normalized, vehicle);
 
     this.logger.info(
       {
@@ -238,7 +241,7 @@ export class GpsIngestionService {
 
   private async persistAcceptedMessage(
     normalized: NormalizedGpsMessage,
-    vehicleId: string
+    vehicle: MatchedVehicleRecord
   ): Promise<{
     messageId: string;
     operationalState: StoredOperationalStateRecord;
@@ -249,8 +252,8 @@ export class GpsIngestionService {
 
     try {
       await client.query("BEGIN");
-      const previousState = await this.repository.getOperationalState(client, vehicleId);
-      const inserted = await this.repository.insertAcceptedMessage(client, normalized, vehicleId);
+      const previousState = await this.repository.getOperationalState(client, vehicle.id);
+      const inserted = await this.repository.insertAcceptedMessage(client, normalized, vehicle.id);
       const positionUpdated = await this.repository.upsertVehiclePosition(client, {
         headingDeg: normalized.headingDeg,
         lastGpsMessageId: inserted.id,
@@ -260,22 +263,30 @@ export class GpsIngestionService {
         receivedAt: normalized.receivedAt,
         sourceName: normalized.sourceName,
         speedKph: normalized.speedKph,
-        vehicleId
+        vehicleId: vehicle.id
       });
       const derived = deriveOperationalState({
         lastReceivedMessageId: inserted.id,
         movementThresholdKph: this.config.gps.movementThresholdKph,
         normalized,
         previousState,
-        vehicleId
+        vehicleId: vehicle.id
       });
-      await this.repository.upsertOperationalState(client, derived.state);
+      const enriched = await applyGpsOperationalEnrichers(this.enrichers, {
+        baseState: derived.state,
+        config: this.config,
+        logger: this.logger,
+        normalized,
+        previousState,
+        vehicle
+      });
+      await this.repository.upsertOperationalState(client, enriched.state);
       await client.query("COMMIT");
 
       return {
         messageId: inserted.id,
         operationalState: {
-          ...derived.state,
+          ...enriched.state,
           updatedAt: normalized.receivedAt
         },
         positionApplied: derived.positionApplied,
@@ -287,11 +298,11 @@ export class GpsIngestionService {
         component: "gps-processing",
         eventPayload: {
           error: error instanceof Error ? error.message : String(error),
-          vehicleId
+          vehicleId: vehicle.id
         },
         eventType: "gps_processing_failure",
         message: "Failed to persist accepted GPS message and derived operational state.",
-        relatedEntityId: vehicleId,
+        relatedEntityId: vehicle.id,
         relatedEntityType: "vehicle",
         severity: "error"
       });
@@ -442,5 +453,3 @@ async function rollbackQuietly(client: PoolClient, logger: FastifyBaseLogger): P
     logger.error({ err: error }, "Failed to roll back GPS transaction");
   }
 }
-
-

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { FastifyBaseLogger } from "fastify";
 
+import type { ObservabilityRegistry } from "../../lib/observability/service.js";
 import type { DisplayHardwareAdapter } from "./hardware-adapter.js";
 import type {
   DisplayCommandResponse,
@@ -33,6 +34,7 @@ export class DisplayDeliveryService {
   constructor(
     private readonly adapter: DisplayHardwareAdapter,
     private readonly logger: FastifyBaseLogger,
+    private readonly observability?: ObservabilityRegistry,
     options: DisplayDeliveryServiceOptions = {}
   ) {
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -64,6 +66,7 @@ export class DisplayDeliveryService {
     this.deliveries.set(deliveryId, record);
     this.deliveryOrder.unshift(deliveryId);
     this.pruneRetainedDeliveries();
+    this.observability?.incrementCounter("display_delivery_queued_total");
 
     this.logger.info(
       {
@@ -282,6 +285,7 @@ export class DisplayDeliveryService {
         status: "delivered"
       };
       this.deliveries.set(deliveryId, deliveredRecord);
+      this.observability?.incrementCounter("display_delivery_delivered_total");
       this.logger.info({ adapterMessageId: result.adapterMessageId, deliveryId }, "Display delivery completed");
       return;
     } catch (error) {
@@ -295,6 +299,7 @@ export class DisplayDeliveryService {
           status: "failed"
         };
         this.deliveries.set(deliveryId, failedRecord);
+        this.observability?.incrementCounter("display_delivery_failed_total");
         this.logger.error({ deliveryId, err: error }, "Display delivery failed after max retry attempts");
         return;
       }
@@ -307,6 +312,7 @@ export class DisplayDeliveryService {
         status: "retry_waiting"
       };
       this.deliveries.set(deliveryId, retryRecord);
+      this.observability?.incrementCounter("display_delivery_retries_total");
       this.logger.warn(
         { deliveryId, nextAttemptAt, remainingAttempts: this.maxAttempts - attemptNumber },
         "Display delivery failed and will be retried"
@@ -366,5 +372,3 @@ export class DisplayDeliveryService {
     return nextRetryAt;
   }
 }
-
-

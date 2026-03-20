@@ -6,7 +6,39 @@ import { GtfsService } from "./service.js";
 
 export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig): Promise<void> {
   const repository = new GtfsRepository(app.db);
-  const service = new GtfsService(config, app.log, repository);
+  const service = new GtfsService(config, app.log, repository, app.observability);
+
+  app.observability.registerComponentProvider("gtfs_pipeline", async () => {
+    const overview = await service.getOverview(5);
+    const latestJob = overview.jobs[0] ?? null;
+    const activeDataset = overview.activeDataset;
+    const hasLatestFailure = latestJob?.status === "failed";
+
+    return {
+      details: {
+        activeDatasetId: activeDataset?.id ?? null,
+        latestJobId: latestJob?.id ?? null,
+        latestJobStatus: latestJob?.status ?? null,
+        warningCount: latestJob?.warningCount ?? 0
+      },
+      kind: "pipeline",
+      message: !activeDataset
+        ? "GTFS pipeline is reachable but no active dataset is selected."
+        : hasLatestFailure
+          ? "Latest GTFS import job failed."
+          : "GTFS pipeline is healthy.",
+      metrics: {
+        gtfs_active_dataset_present: activeDataset ? 1 : 0,
+        gtfs_active_route_count: activeDataset?.routeCount ?? 0,
+        gtfs_active_stop_count: activeDataset?.stopCount ?? 0,
+        gtfs_active_trip_count: activeDataset?.tripCount ?? 0,
+        gtfs_latest_job_validation_errors: latestJob?.validationErrorCount ?? 0,
+        gtfs_latest_job_warnings: latestJob?.warningCount ?? 0
+      },
+      readiness: true,
+      status: !activeDataset || hasLatestFailure ? "warn" : "pass"
+    };
+  });
 
   app.get("/api/admin/gtfs/overview", async (request, reply) => {
     const authUser = await app.requirePermission(request, reply, "dispatch:manage");
@@ -18,7 +50,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
     try {
       return await service.getOverview(readLimit(request.query));
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to load GTFS import overview.");
+      return sendGtfsError(app, reply, error, "Unable to load GTFS import overview.");
     }
   });
 
@@ -34,7 +66,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
         jobs: await service.getLogs(readLimit(request.query), readLogFilters(request.query))
       };
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to load GTFS import logs.");
+      return sendGtfsError(app, reply, error, "Unable to load GTFS import logs.");
     }
   });
   app.get("/api/admin/gtfs/imports/:jobId/errors", async (request, reply) => {
@@ -55,7 +87,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
         errors: await service.getErrors(params.jobId, readLimit(request.query))
       };
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to load GTFS validation errors.");
+      return sendGtfsError(app, reply, error, "Unable to load GTFS validation errors.");
     }
   });
 
@@ -77,7 +109,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
     try {
       return await service.importFromLocalPath(body, authUser.id);
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to import GTFS package from the provided path.");
+      return sendGtfsError(app, reply, error, "Unable to import GTFS package from the provided path.");
     }
   });
 
@@ -99,7 +131,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
     try {
       return await service.importFromUpload(body, authUser.id);
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to import uploaded GTFS package.");
+      return sendGtfsError(app, reply, error, "Unable to import uploaded GTFS package.");
     }
   });
 
@@ -120,7 +152,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
       await service.activateDataset(params.datasetId, authUser.id);
       return reply.code(204).send();
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to activate GTFS dataset.");
+      return sendGtfsError(app, reply, error, "Unable to activate GTFS dataset.");
     }
   });
 
@@ -141,7 +173,7 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
       await service.rollbackDataset(params.datasetId, authUser.id);
       return reply.code(204).send();
     } catch (error) {
-      return sendGtfsError(reply, error, "Unable to roll back GTFS dataset.");
+      return sendGtfsError(app, reply, error, "Unable to roll back GTFS dataset.");
     }
   });
 }
@@ -214,9 +246,11 @@ function readUploadImportBody(body: unknown): { activateOnSuccess: boolean; data
   };
 }
 
-function sendGtfsError(reply: FastifyReply, error: unknown, fallbackMessage: string) {
+function sendGtfsError(app: FastifyInstance, reply: FastifyReply, error: unknown, fallbackMessage: string) {
   const errorCode = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
   const message = error instanceof Error ? error.message : fallbackMessage;
+
+  app.observability.incrementCounter("gtfs_operation_failures_total");
 
   if (message === "GTFS dataset not found.") {
     return reply.code(404).send({ message });
@@ -241,5 +275,3 @@ function sendGtfsError(reply: FastifyReply, error: unknown, fallbackMessage: str
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-

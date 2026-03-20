@@ -7,6 +7,7 @@ import type { CmsConfig } from "@cmsfleet/config-runtime";
 import type { FastifyBaseLogger } from "fastify";
 import type { PoolClient } from "pg";
 
+import type { ObservabilityRegistry } from "../../lib/observability/service.js";
 import { extractZipArchive } from "./archive.js";
 import { parseGtfsDirectory } from "./parser.js";
 import { GtfsRepository } from "./repository.js";
@@ -25,7 +26,8 @@ export class GtfsService {
   constructor(
     private readonly config: CmsConfig,
     private readonly logger: FastifyBaseLogger,
-    private readonly repository: GtfsRepository
+    private readonly repository: GtfsRepository,
+    private readonly observability?: ObservabilityRegistry
   ) {}
 
   async activateDataset(datasetId: string, actorUserId: string | null): Promise<void> {
@@ -41,9 +43,11 @@ export class GtfsService {
       await client.query("BEGIN");
       await this.repository.activateDataset(client, datasetId, actorUserId);
       await client.query("COMMIT");
+      this.observability?.incrementCounter("gtfs_dataset_activations_total");
       this.logger.info({ datasetId, actorUserId }, "GTFS dataset activated");
     } catch (error) {
       await rollbackQuietly(client, this.logger);
+      this.observability?.incrementCounter("gtfs_dataset_activation_failures_total");
       throw error;
     } finally {
       client.release();
@@ -106,6 +110,7 @@ export class GtfsService {
   }
 
   async rollbackDataset(datasetId: string, actorUserId: string | null): Promise<void> {
+    this.observability?.incrementCounter("gtfs_dataset_rollbacks_total");
     await this.activateDataset(datasetId, actorUserId);
   }
 
@@ -131,6 +136,7 @@ export class GtfsService {
     });
 
     let workingDirectory = input.temporaryRoot;
+    this.observability?.incrementCounter("gtfs_import_jobs_started_total");
 
     this.logger.info(
       {
@@ -189,6 +195,7 @@ export class GtfsService {
           });
           await client.query("COMMIT");
 
+          this.observability?.incrementCounter("gtfs_import_jobs_failed_total");
           this.logger.warn({ errorCount, jobId, warningCount }, "GTFS import failed validation");
 
           return {
@@ -222,6 +229,7 @@ export class GtfsService {
             isActive: true,
             status: "active"
           });
+          this.observability?.incrementCounter("gtfs_dataset_activations_total");
         }
 
         await this.repository.updateJob(client, jobId, {
@@ -241,6 +249,7 @@ export class GtfsService {
         });
         await client.query("COMMIT");
 
+        this.observability?.incrementCounter("gtfs_import_jobs_succeeded_total");
         this.logger.info(
           {
             activateOnSuccess: input.activateOnSuccess,
@@ -286,6 +295,7 @@ export class GtfsService {
         client.release();
       }
 
+      this.observability?.incrementCounter("gtfs_import_jobs_failed_total");
       this.logger.error({ err: error, jobId, sourceUri: input.sourceUri }, "GTFS import failed unexpectedly");
       throw error;
     } finally {
@@ -373,4 +383,3 @@ async function rollbackQuietly(client: PoolClient, logger: FastifyBaseLogger): P
     logger.error({ err: error }, "Failed to roll back GTFS transaction");
   }
 }
-

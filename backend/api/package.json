@@ -7,8 +7,12 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "lint": "eslint src",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "npm run test:unit && npm run test:api && npm run test:integration",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:unit": "vitest run tests/unit",
+    "test:api": "vitest run tests/api",
+    "test:integration": "vitest run tests/integration",
+    "start:prod": "tsx src/index.ts"
   },
   "dependencies": {
     "@cmsfleet/config-runtime": "0.1.0",

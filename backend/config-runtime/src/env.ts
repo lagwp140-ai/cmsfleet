@@ -3,6 +3,7 @@ import type { AppEnvironment, CmsConfig, ConfigRuntimeContext, ConfigSelection }
 const APP_ENVIRONMENTS = ["local", "test", "staging", "production"] as const;
 const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace"] as const;
 const NODE_ENVIRONMENTS = ["development", "test", "production"] as const;
+const SESSION_SAME_SITE_VALUES = ["lax", "strict", "none"] as const;
 const CONFIG_OVERRIDE_PREFIX = "CMS_CFG__";
 
 type SelectionOverrideKey = Exclude<keyof ConfigSelection, "environment">;
@@ -42,6 +43,14 @@ export function readLoaderEnvironment(rawEnv: NodeJS.ProcessEnv = process.env): 
 function buildTypedOverrides(rawEnv: NodeJS.ProcessEnv): Partial<CmsConfig> {
   const databaseUrl = readString(rawEnv, "CMS_DATABASE_URL") ?? readString(rawEnv, "DATABASE_URL");
   const apiPort = readPositiveInt(rawEnv, "CMS_API_PORT") ?? readPositiveInt(rawEnv, "PORT");
+  const apiTrustProxy = readBoolean(rawEnv, "CMS_API_TRUST_PROXY");
+  const rateLimitEnabled = readBoolean(rawEnv, "CMS_RATE_LIMIT_ENABLED");
+  const generalMaxRequests = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_GENERAL_MAX_REQUESTS");
+  const generalWindowSeconds = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_GENERAL_WINDOW_SECONDS");
+  const loginMaxAttempts = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_LOGIN_MAX_ATTEMPTS");
+  const loginWindowSeconds = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_LOGIN_WINDOW_SECONDS");
+  const mutationMaxRequests = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_MUTATION_MAX_REQUESTS");
+  const mutationWindowSeconds = readPositiveInt(rawEnv, "CMS_RATE_LIMIT_MUTATION_WINDOW_SECONDS");
   const workerPollIntervalMs =
     readPositiveInt(rawEnv, "CMS_WORKER_POLL_INTERVAL_MS") ??
     readPositiveInt(rawEnv, "JOB_POLL_INTERVAL_MS");
@@ -49,10 +58,17 @@ function buildTypedOverrides(rawEnv: NodeJS.ProcessEnv): Partial<CmsConfig> {
     readOptionalEnum(rawEnv, "CMS_LOG_LEVEL", LOG_LEVELS) ?? readOptionalEnum(rawEnv, "LOG_LEVEL", LOG_LEVELS);
   const corsOrigins = splitCsv(readString(rawEnv, "CMS_CORS_ORIGINS") ?? readString(rawEnv, "CORS_ORIGINS"));
   const authSessionSecret = readString(rawEnv, "CMS_AUTH_SESSION_SECRET");
+  const authCsrfSecret = readString(rawEnv, "CMS_AUTH_CSRF_SECRET");
   const authCookieName = readString(rawEnv, "CMS_AUTH_COOKIE_NAME");
   const authSessionMaxAgeMinutes = readPositiveInt(rawEnv, "CMS_AUTH_SESSION_MAX_AGE_MINUTES");
+  const authSessionSameSite = readOptionalEnum(rawEnv, "CMS_AUTH_SESSION_SAME_SITE", SESSION_SAME_SITE_VALUES);
   const authPasswordMinLength = readPositiveInt(rawEnv, "CMS_AUTH_PASSWORD_MIN_LENGTH");
+  const authPasswordMaxLength = readPositiveInt(rawEnv, "CMS_AUTH_PASSWORD_MAX_LENGTH");
   const authPasswordIterations = readPositiveInt(rawEnv, "CMS_AUTH_PASSWORD_ITERATIONS");
+  const authPasswordRequireLowercase = readBoolean(rawEnv, "CMS_AUTH_PASSWORD_REQUIRE_LOWERCASE");
+  const authPasswordRequireUppercase = readBoolean(rawEnv, "CMS_AUTH_PASSWORD_REQUIRE_UPPERCASE");
+  const authPasswordRequireNumber = readBoolean(rawEnv, "CMS_AUTH_PASSWORD_REQUIRE_NUMBER");
+  const authPasswordRequireSymbol = readBoolean(rawEnv, "CMS_AUTH_PASSWORD_REQUIRE_SYMBOL");
   const authSecureCookies = readBoolean(rawEnv, "CMS_AUTH_SECURE_COOKIES");
   const authBootstrapUsersEnabled = readBoolean(rawEnv, "CMS_AUTH_BOOTSTRAP_USERS_ENABLED");
 
@@ -64,6 +80,38 @@ function buildTypedOverrides(rawEnv: NodeJS.ProcessEnv): Partial<CmsConfig> {
 
   if (apiPort !== undefined) {
     setPath(overrides, ["runtime", "api", "port"], apiPort);
+  }
+
+  if (apiTrustProxy !== undefined) {
+    setPath(overrides, ["runtime", "api", "trustProxy"], apiTrustProxy);
+  }
+
+  if (rateLimitEnabled !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "enabled"], rateLimitEnabled);
+  }
+
+  if (generalMaxRequests !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "generalMaxRequests"], generalMaxRequests);
+  }
+
+  if (generalWindowSeconds !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "generalWindowSeconds"], generalWindowSeconds);
+  }
+
+  if (loginMaxAttempts !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "loginMaxAttempts"], loginMaxAttempts);
+  }
+
+  if (loginWindowSeconds !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "loginWindowSeconds"], loginWindowSeconds);
+  }
+
+  if (mutationMaxRequests !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "mutationMaxRequests"], mutationMaxRequests);
+  }
+
+  if (mutationWindowSeconds !== undefined) {
+    setPath(overrides, ["runtime", "api", "rateLimit", "mutationWindowSeconds"], mutationWindowSeconds);
   }
 
   if (workerPollIntervalMs !== undefined) {
@@ -82,12 +130,20 @@ function buildTypedOverrides(rawEnv: NodeJS.ProcessEnv): Partial<CmsConfig> {
     setPath(overrides, ["auth", "session", "secret"], authSessionSecret);
   }
 
+  if (authCsrfSecret !== undefined) {
+    setPath(overrides, ["auth", "csrf", "secret"], authCsrfSecret);
+  }
+
   if (authCookieName !== undefined) {
     setPath(overrides, ["auth", "session", "cookieName"], authCookieName);
   }
 
   if (authSessionMaxAgeMinutes !== undefined) {
     setPath(overrides, ["auth", "session", "maxAgeMinutes"], authSessionMaxAgeMinutes);
+  }
+
+  if (authSessionSameSite !== undefined) {
+    setPath(overrides, ["auth", "session", "sameSite"], authSessionSameSite);
   }
 
   if (authSecureCookies !== undefined) {
@@ -98,8 +154,28 @@ function buildTypedOverrides(rawEnv: NodeJS.ProcessEnv): Partial<CmsConfig> {
     setPath(overrides, ["auth", "passwordPolicy", "minLength"], authPasswordMinLength);
   }
 
+  if (authPasswordMaxLength !== undefined) {
+    setPath(overrides, ["auth", "passwordPolicy", "maxLength"], authPasswordMaxLength);
+  }
+
   if (authPasswordIterations !== undefined) {
     setPath(overrides, ["auth", "passwordPolicy", "iterations"], authPasswordIterations);
+  }
+
+  if (authPasswordRequireLowercase !== undefined) {
+    setPath(overrides, ["auth", "passwordPolicy", "requireLowercase"], authPasswordRequireLowercase);
+  }
+
+  if (authPasswordRequireUppercase !== undefined) {
+    setPath(overrides, ["auth", "passwordPolicy", "requireUppercase"], authPasswordRequireUppercase);
+  }
+
+  if (authPasswordRequireNumber !== undefined) {
+    setPath(overrides, ["auth", "passwordPolicy", "requireNumber"], authPasswordRequireNumber);
+  }
+
+  if (authPasswordRequireSymbol !== undefined) {
+    setPath(overrides, ["auth", "passwordPolicy", "requireSymbol"], authPasswordRequireSymbol);
   }
 
   if (authBootstrapUsersEnabled !== undefined) {

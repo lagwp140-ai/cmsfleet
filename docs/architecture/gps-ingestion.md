@@ -63,3 +63,8 @@ The frontend surfaces this through [`frontend/web/src/pages/GpsPage.tsx`](/c:/Pr
 - Implement optional enrichers for geofencing, stop proximity, route proximity, and trip progress.
 - Emit durable transition events if operations need historical offline and recovery alerts instead of computed-on-read state only.
 
+
+## Extension Hook
+
+- `backend/api/src/modules/gps/enrichers.ts` provides a no-op-by-default post-ingest enrichment seam.
+- Future stop proximity, route proximity, trip progress, and ETA logic should plug in there so the MVP HTTP ingestion path stays unchanged.

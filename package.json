@@ -21,8 +21,24 @@
     "dev:worker": "npm --workspace @cmsfleet/integration-worker run dev",
     "format": "npm run format --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "test": "npm run test:ci",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:unit": "npm run test:unit --workspaces --if-present",
+    "test:api": "npm run test:api --workspaces --if-present",
+    "test:integration": "npm run test:integration --workspaces --if-present",
+    "test:ci": "npm run test:unit && npm run test:api && npm run test:integration",
+    "dev:start": "tsx scripts/dev-runner.ts",
+    "dev:setup": "tsx scripts/dev-setup.ts",
+    "dev:provision": "npm run dev:stack:up && npm run dev:db:migrate && npm run dev:seed",
+    "dev:stack:up": "docker compose -f deploy/docker-compose.dev.yml up -d",
+    "dev:stack:down": "docker compose -f deploy/docker-compose.dev.yml down",
+    "dev:stack:logs": "docker compose -f deploy/docker-compose.dev.yml logs -f",
+    "dev:db:migrate": "tsx scripts/run-db-migrations.ts up",
+    "dev:seed": "tsx scripts/seed-local-dev.ts",
+    "dev:gps:send": "tsx scripts/mock-gps-sender.ts",
+    "dev:display:status": "tsx scripts/mock-display-console.ts status",
+    "dev:display:watch": "tsx scripts/mock-display-console.ts watch",
+    "dev:display:publish": "tsx scripts/mock-display-console.ts publish"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
@@ -32,6 +48,8 @@
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.24.1",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.3"
   }
 }

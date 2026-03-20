@@ -1,32 +1,5 @@
-import { ApiError } from "../auth/authClient";
-
 import type { SystemEventRecord, SystemEventSeverity } from "./diagnosticsTypes";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
-
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    const payload = await readPayload(response);
-    throw new ApiError(payload.message ?? `Request failed with status ${response.status}.`, response.status);
-  }
-
-  return (await response.json()) as T;
-}
-
-async function readPayload(response: Response): Promise<{ message?: string }> {
-  try {
-    return (await response.json()) as { message?: string };
-  } catch {
-    return {};
-  }
-}
+import { requestJson } from "../lib/apiClient";
 
 export async function fetchSystemEvents(filters: {
   component?: string;
@@ -64,6 +37,6 @@ export async function fetchSystemEvents(filters: {
 
   const queryString = query.toString();
   const suffix = queryString === "" ? "" : `?${queryString}`;
-  const response = await request<{ events: SystemEventRecord[] }>(`/api/admin/system-events${suffix}`);
+  const response = await requestJson<{ events: SystemEventRecord[] }>(`/api/admin/system-events${suffix}`);
   return response.events;
 }
