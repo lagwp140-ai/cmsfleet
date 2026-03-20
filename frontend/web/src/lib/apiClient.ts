@@ -311,7 +311,7 @@ function buildDirectBackendUrl(): string | null {
     return null;
   }
 
-  if (window.location.port !== "5173" && window.location.port !== "4173") {
+  if (window.location.port === "3000") {
     return null;
   }
 
