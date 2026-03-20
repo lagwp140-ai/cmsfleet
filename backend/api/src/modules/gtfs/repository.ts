@@ -29,24 +29,72 @@ export class GtfsRepository {
     sourceUri: string;
     summary?: Record<string, unknown>;
   }): Promise<string> {
-    const result = await this.pool.query<{ id: string }>(
+    const summary = input.summary ?? {};
+
+    try {
+      const result = await this.pool.query<{ id: string }>(
+        `
+          INSERT INTO operations.gtfs_import_jobs (
+            requested_by_user_id,
+            source_uri,
+            source_type,
+            activation_mode,
+            status,
+            summary,
+            input_payload
+          )
+          VALUES ($1, $2, $3, $4, 'queued', $5, $5)
+          RETURNING id::text AS id
+        `,
+        [input.requestedByUserId, input.sourceUri, input.sourceType, input.activationMode, summary]
+      );
+
+      return result.rows[0]!.id;
+    } catch (error) {
+      if (!isMissingColumnError(error, "input_payload")) {
+        throw error;
+      }
+    }
+
+    try {
+      const result = await this.pool.query<{ id: string }>(
+        `
+          INSERT INTO operations.gtfs_import_jobs (
+            requested_by_user_id,
+            source_uri,
+            source_type,
+            activation_mode,
+            status,
+            summary
+          )
+          VALUES ($1, $2, $3, $4, 'queued', $5)
+          RETURNING id::text AS id
+        `,
+        [input.requestedByUserId, input.sourceUri, input.sourceType, input.activationMode, summary]
+      );
+
+      return result.rows[0]!.id;
+    } catch (error) {
+      if (!isMissingColumnError(error, "source_type") && !isMissingColumnError(error, "activation_mode")) {
+        throw error;
+      }
+    }
+
+    const legacyResult = await this.pool.query<{ id: string }>(
       `
         INSERT INTO operations.gtfs_import_jobs (
           requested_by_user_id,
           source_uri,
-          source_type,
-          activation_mode,
           status,
-          summary,
-          input_payload
+          summary
         )
-        VALUES ($1, $2, $3, $4, 'queued', $5, $5)
+        VALUES ($1, $2, 'queued', $3)
         RETURNING id::text AS id
       `,
-      [input.requestedByUserId, input.sourceUri, input.sourceType, input.activationMode, input.summary ?? {}]
+      [input.requestedByUserId, input.sourceUri, summary]
     );
 
-    return result.rows[0]!.id;
+    return legacyResult.rows[0]!.id;
   }
 
   async findDatasetById(datasetId: string): Promise<GtfsDatasetRecord | null> {
@@ -967,3 +1015,13 @@ const DATASET_SELECT_SQL = `
 
 
 
+
+
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && String((error as { code?: unknown }).code ?? "") === "42703"
+    && "message" in error
+    && String((error as { message?: unknown }).message ?? "").includes(columnName);
+}

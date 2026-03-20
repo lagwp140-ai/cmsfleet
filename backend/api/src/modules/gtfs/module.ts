@@ -359,6 +359,11 @@ function sendGtfsError(app: FastifyInstance, reply: FastifyReply, error: unknown
     return reply.code(400).send({ message });
   }
 
+  if (errorCode === "42P01" || errorCode === "42703") {
+    reply.log.error({ err: error }, fallbackMessage);
+    return reply.code(500).send({ message });
+  }
+
   reply.log.error({ err: error }, fallbackMessage);
   return reply.code(500).send({ message: fallbackMessage });
 }
