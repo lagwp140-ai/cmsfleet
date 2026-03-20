@@ -72,6 +72,22 @@ resolve_restart_command() {
   fi
 }
 
+run_health_checks() {
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "==> Skipping health checks because curl is not installed"
+    return
+  fi
+
+  local health_url="${CMS_HEALTHCHECK_URL:-http://localhost:3000/health}"
+  local auth_url="${CMS_AUTH_METADATA_URL:-http://localhost:3000/api/auth/metadata}"
+
+  echo "==> Checking API health"
+  curl -fsS "${health_url}" >/dev/null
+
+  echo "==> Checking auth metadata"
+  curl -fsS "${auth_url}" >/dev/null
+}
+
 echo "==> Project root: ${PROJECT_ROOT}"
 echo "==> Deploy user: ${APP_USER}"
 
@@ -79,9 +95,9 @@ cd "${PROJECT_ROOT}"
 
 resolve_restart_command
 
-if [[ -d "${PROJECT_ROOT}/frontend/web/dist" ]] && [[ "$(id -u)" -eq 0 ]] && id "${APP_USER}" >/dev/null 2>&1; then
-  echo "==> Fixing frontend build ownership"
-  chown -R "${APP_USER}:${APP_USER}" "${PROJECT_ROOT}/frontend/web/dist"
+if [[ "$(id -u)" -eq 0 ]] && id "${APP_USER}" >/dev/null 2>&1; then
+  echo "==> Fixing project ownership"
+  chown -R "${APP_USER}:${APP_USER}" "${PROJECT_ROOT}"
 fi
 
 if [[ "${SKIP_INSTALL}" -eq 0 ]]; then
@@ -104,6 +120,7 @@ fi
 if [[ -n "${RESTART_COMMAND}" ]]; then
   echo "==> Running restart command"
   bash -lc "${RESTART_COMMAND}"
+  run_health_checks
 else
   cat <<EOF
 ==> Deploy steps finished.
@@ -116,6 +133,7 @@ Examples:
   ./scripts/deploy-linux.sh --restart-command "systemctl restart cmsfleet-api"
 
 If cmsfleet-api or cmsfleet-web systemd units already exist, this script now restarts them automatically.
+When restart runs, the script also checks http://localhost:3000/health and /api/auth/metadata by default.
 
 Manual API restart example:
   cd ${PROJECT_ROOT}/backend/api

@@ -1,13 +1,15 @@
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 const DEFAULT_CSRF_HEADER_NAME = "x-csrf-token";
+const DEFAULT_PRIMARY_TIMEOUT_MS = 5_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const IN_FLIGHT_GET_REQUESTS = new Map<string, Promise<unknown>>();
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
-const API_BASE_URL = resolveApiBaseUrl(RAW_API_BASE_URL);
+const API_BASE_URLS = resolveApiBaseUrls(RAW_API_BASE_URL);
 
 let csrfHeaderName = DEFAULT_CSRF_HEADER_NAME;
 let csrfToken: string | null = null;
+let preferredApiBaseUrl = API_BASE_URLS[0] ?? "";
 
 interface ApiSuccessEnvelope<T> {
   data: T;
@@ -63,7 +65,7 @@ export async function requestJson<T>(path: string, init: ApiRequestInit = {}): P
   const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestOptions } = init;
   const method = (requestOptions.method ?? "GET").toUpperCase();
   const headers = new Headers(requestOptions.headers ?? {});
-  const requestUrl = `${API_BASE_URL}${path}`;
+  const requestKey = `${preferredApiBaseUrl}${path}`;
 
   if (requestOptions.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -81,25 +83,25 @@ export async function requestJson<T>(path: string, init: ApiRequestInit = {}): P
   };
 
   if (method === "GET" && requestOptions.body === undefined) {
-    const existingRequest = IN_FLIGHT_GET_REQUESTS.get(requestUrl);
+    const existingRequest = IN_FLIGHT_GET_REQUESTS.get(requestKey);
 
     if (existingRequest) {
       return existingRequest as Promise<T>;
     }
 
-    const pendingRequest = performJsonRequest<T>(requestUrl, requestInit, timeoutMs).finally(() => {
-      IN_FLIGHT_GET_REQUESTS.delete(requestUrl);
+    const pendingRequest = performJsonRequest<T>(path, requestInit, timeoutMs).finally(() => {
+      IN_FLIGHT_GET_REQUESTS.delete(requestKey);
     });
 
-    IN_FLIGHT_GET_REQUESTS.set(requestUrl, pendingRequest as Promise<unknown>);
+    IN_FLIGHT_GET_REQUESTS.set(requestKey, pendingRequest as Promise<unknown>);
     return pendingRequest;
   }
 
-  return performJsonRequest<T>(requestUrl, requestInit, timeoutMs);
+  return performJsonRequest<T>(path, requestInit, timeoutMs);
 }
 
-async function performJsonRequest<T>(requestUrl: string, init: RequestInit, timeoutMs: number): Promise<T> {
-  const response = await fetchWithTimeout(requestUrl, init, timeoutMs);
+async function performJsonRequest<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
+  const response = await fetchWithFallback(path, init, timeoutMs);
 
   captureCsrfToken(response);
 
@@ -142,7 +144,7 @@ export async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-export { API_BASE_URL };
+export const API_BASE_URL = preferredApiBaseUrl;
 
 function captureCsrfToken(response: Response): void {
   const directToken = response.headers.get(csrfHeaderName) ?? response.headers.get(DEFAULT_CSRF_HEADER_NAME);
@@ -161,6 +163,33 @@ function captureCsrfToken(response: Response): void {
     csrfHeaderName = key;
     csrfToken = value;
   });
+}
+
+async function fetchWithFallback(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const candidates = getCandidateApiBaseUrls();
+  let lastError: unknown;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const baseUrl = candidates[index] ?? "";
+    const requestUrl = `${baseUrl}${path}`;
+    const attemptTimeout = candidates.length > 1 && index === 0
+      ? Math.min(timeoutMs, DEFAULT_PRIMARY_TIMEOUT_MS)
+      : timeoutMs;
+
+    try {
+      const response = await fetchWithTimeout(requestUrl, init, attemptTimeout);
+      preferredApiBaseUrl = baseUrl;
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      if (!shouldRetryWithAlternativeBase(error) || index === candidates.length - 1) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new ApiError("Unable to reach the API.", 0, { code: "network_error" });
 }
 
 async function fetchWithTimeout(requestUrl: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -192,7 +221,7 @@ async function fetchWithTimeout(requestUrl: string, init: RequestInit, timeoutMs
     }
 
     if (error instanceof TypeError) {
-      throw new ApiError("Unable to reach the API. Check the backend address, CORS origins, and browser network access.", 0, {
+      throw new ApiError("Unable to reach the API. Check the backend address, proxy settings, and browser network access.", 0, {
         code: "network_error"
       });
     }
@@ -218,6 +247,14 @@ function formatApiErrorMessage(message: string, details: unknown): string {
   return message;
 }
 
+function getCandidateApiBaseUrls(): string[] {
+  if (preferredApiBaseUrl !== "") {
+    return [preferredApiBaseUrl, ...API_BASE_URLS.filter((candidate) => candidate !== preferredApiBaseUrl)];
+  }
+
+  return [...new Set([preferredApiBaseUrl, ...API_BASE_URLS])];
+}
+
 function isAbortLikeError(value: unknown): boolean {
   return value instanceof DOMException && value.name === "AbortError";
 }
@@ -238,15 +275,22 @@ function isPlainObject(value: unknown): value is Record<string, any> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function resolveApiBaseUrl(configuredValue: string): string {
+function resolveApiBaseUrls(configuredValue: string): string[] {
   const normalizedValue = stripTrailingSlash(configuredValue);
 
   if (typeof window === "undefined") {
-    return normalizedValue;
+    return normalizedValue === "" ? [""] : [normalizedValue];
   }
 
   if (normalizedValue === "") {
-    return "";
+    const candidates = [""];
+    const directBackendUrl = buildDirectBackendUrl();
+
+    if (directBackendUrl) {
+      candidates.push(directBackendUrl);
+    }
+
+    return [...new Set(candidates)];
   }
 
   try {
@@ -254,13 +298,28 @@ function resolveApiBaseUrl(configuredValue: string): string {
 
     if (shouldRewriteLoopbackHost(configuredUrl.hostname, window.location.hostname)) {
       configuredUrl.hostname = window.location.hostname;
-      return stripTrailingSlash(configuredUrl.toString());
     }
 
-    return stripTrailingSlash(configuredUrl.toString());
+    return [stripTrailingSlash(configuredUrl.toString())];
   } catch {
-    return normalizedValue;
+    return [normalizedValue];
   }
+}
+
+function buildDirectBackendUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (window.location.port !== "5173" && window.location.port !== "4173") {
+    return null;
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:3000`;
+}
+
+function shouldRetryWithAlternativeBase(error: unknown): boolean {
+  return error instanceof ApiError && (error.code === "network_error" || error.code === "request_timeout");
 }
 
 function shouldRewriteLoopbackHost(apiHostname: string, pageHostname: string): boolean {
