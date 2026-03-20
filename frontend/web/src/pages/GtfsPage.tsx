@@ -237,12 +237,14 @@ export function GtfsPage() {
       await loadOverview(result.jobId, result.datasetId ?? selectedDatasetId);
       await refreshConsole();
       setFeedback({
-        body: result.status === "succeeded"
-          ? localPathActivateOnSuccess
-            ? "The GTFS package was imported, validated, activated, and is now ready for route and trip inspection."
-            : "The GTFS package was imported and staged as a selectable dataset. Use the explorer below to inspect routes, trips, and stop sequences."
-          : "The GTFS package was staged for review, but validation errors blocked activation.",
-        title: result.status === "succeeded" ? "GTFS import completed" : "GTFS import needs review",
+        body: result.status === "queued"
+          ? "The GTFS import job was queued and will continue in the background. Refresh the import history below in a moment to watch it move from queued to running and then to succeeded or failed."
+          : result.status === "succeeded"
+            ? localPathActivateOnSuccess
+              ? "The GTFS package was imported, validated, activated, and is now ready for route and trip inspection."
+              : "The GTFS package was imported and staged as a selectable dataset. Use the explorer below to inspect routes, trips, and stop sequences."
+            : "The GTFS package was staged for review, but validation errors blocked activation.",
+        title: result.status === "queued" ? "GTFS import queued" : result.status === "succeeded" ? "GTFS import completed" : "GTFS import needs review",
         tone: result.status === "succeeded" ? "good" : "warn"
       });
     } catch (requestError) {
@@ -277,12 +279,14 @@ export function GtfsPage() {
       await loadOverview(result.jobId, result.datasetId ?? selectedDatasetId);
       await refreshConsole();
       setFeedback({
-        body: result.status === "succeeded"
-          ? uploadActivateOnSuccess
-            ? "The uploaded feed validated successfully, is active now, and can be explored route by route below."
-            : "The uploaded feed validated successfully and is ready for manual activation and inspection."
-          : "The uploaded feed was stored for inspection, but validation blocked dataset creation.",
-        title: result.status === "succeeded" ? "GTFS upload completed" : "GTFS upload needs review",
+        body: result.status === "queued"
+          ? "The uploaded GTFS package was received and queued for background processing. Refresh the import history below shortly to see the final result and any validation findings."
+          : result.status === "succeeded"
+            ? uploadActivateOnSuccess
+              ? "The uploaded feed validated successfully, is active now, and can be explored route by route below."
+              : "The uploaded feed validated successfully and is ready for manual activation and inspection."
+            : "The uploaded feed was stored for inspection, but validation blocked dataset creation.",
+        title: result.status === "queued" ? "GTFS upload queued" : result.status === "succeeded" ? "GTFS upload completed" : "GTFS upload needs review",
         tone: result.status === "succeeded" ? "good" : "warn"
       });
       setUploadFile(null);

@@ -96,16 +96,24 @@ export class GtfsService {
     requestedByUserId: string | null
   ): Promise<{ datasetId: string | null; jobId: string; status: string }> {
     const resolvedPath = resolve(input.filePath.trim());
-
-    return this.runImport({
+    const jobInput = {
       activateOnSuccess: input.activateOnSuccess,
       datasetLabel: normalizeDatasetLabel(input.datasetLabel, resolvedPath),
       fileName: basename(resolvedPath),
       requestedByUserId,
       sourcePath: resolvedPath,
-      sourceType: "local_path",
+      sourceType: "local_path" as const,
       sourceUri: resolvedPath
-    });
+    };
+    const jobId = await this.createImportJob(jobInput);
+
+    this.startDetachedImport(jobId, jobInput);
+
+    return {
+      datasetId: null,
+      jobId,
+      status: "queued"
+    };
   }
 
   async importFromUpload(
@@ -116,17 +124,25 @@ export class GtfsService {
     const fileName = sanitizeFileName(input.fileName.trim() || "gtfs-upload.zip");
     const zipPath = join(workDirectory, fileName);
     await writeFile(zipPath, input.zipBuffer);
-
-    return this.runImport({
+    const jobInput = {
       activateOnSuccess: input.activateOnSuccess,
       datasetLabel: normalizeDatasetLabel(input.datasetLabel, fileName),
       fileName,
       requestedByUserId,
       sourcePath: zipPath,
-      sourceType: "upload",
+      sourceType: "upload" as const,
       sourceUri: `upload://${fileName}`,
       temporaryRoot: workDirectory
-    });
+    };
+    const jobId = await this.createImportJob(jobInput);
+
+    this.startDetachedImport(jobId, jobInput);
+
+    return {
+      datasetId: null,
+      jobId,
+      status: "queued"
+    };
   }
 
   async rollbackDataset(datasetId: string, actorUserId: string | null): Promise<void> {
@@ -134,7 +150,7 @@ export class GtfsService {
     await this.activateDataset(datasetId, actorUserId);
   }
 
-  private async runImport(input: {
+  private async createImportJob(input: {
     activateOnSuccess: boolean;
     datasetLabel: string;
     fileName: string;
@@ -143,10 +159,9 @@ export class GtfsService {
     sourceType: "local_path" | "upload";
     sourceUri: string;
     temporaryRoot?: string;
-  }): Promise<{ datasetId: string | null; jobId: string; status: string }> {
-    const activationMode = input.activateOnSuccess ? "activate_on_success" : "manual";
-    const jobId = await this.repository.createImportJob({
-      activationMode,
+  }): Promise<string> {
+    return this.repository.createImportJob({
+      activationMode: input.activateOnSuccess ? "activate_on_success" : "manual",
       requestedByUserId: input.requestedByUserId,
       sourceType: input.sourceType,
       sourceUri: input.sourceUri,
@@ -154,6 +169,39 @@ export class GtfsService {
         requestedFileName: input.fileName
       }
     });
+  }
+
+  private startDetachedImport(
+    jobId: string,
+    input: {
+      activateOnSuccess: boolean;
+      datasetLabel: string;
+      fileName: string;
+      requestedByUserId: string | null;
+      sourcePath: string;
+      sourceType: "local_path" | "upload";
+      sourceUri: string;
+      temporaryRoot?: string;
+    }
+  ): void {
+    queueMicrotask(() => {
+      void this.runImport(jobId, input).catch((error) => {
+        this.logger.error({ err: error, jobId }, "GTFS import worker crashed unexpectedly");
+      });
+    });
+  }
+
+  private async runImport(jobId: string, input: {
+    activateOnSuccess: boolean;
+    datasetLabel: string;
+    fileName: string;
+    requestedByUserId: string | null;
+    sourcePath: string;
+    sourceType: "local_path" | "upload";
+    sourceUri: string;
+    temporaryRoot?: string;
+  }): Promise<void> {
+    const activationMode = input.activateOnSuccess ? "activate_on_success" : "manual";
 
     let workingDirectory = input.temporaryRoot;
     this.observability?.incrementCounter("gtfs_import_jobs_started_total");
@@ -218,11 +266,7 @@ export class GtfsService {
           this.observability?.incrementCounter("gtfs_import_jobs_failed_total");
           this.logger.warn({ errorCount, jobId, warningCount }, "GTFS import failed validation");
 
-          return {
-            datasetId: null,
-            jobId,
-            status: "failed"
-          };
+          return;
         }
 
         const activeDataset = await this.repository.getActiveDatasetForClient(client);
@@ -286,11 +330,7 @@ export class GtfsService {
           "GTFS import completed"
         );
 
-        return {
-          datasetId,
-          jobId,
-          status: "succeeded"
-        };
+        return;
       } catch (error) {
         await rollbackQuietly(client, this.logger);
         throw error;
@@ -317,7 +357,7 @@ export class GtfsService {
 
       this.observability?.incrementCounter("gtfs_import_jobs_failed_total");
       this.logger.error({ err: error, jobId, sourceUri: input.sourceUri }, "GTFS import failed unexpectedly");
-      throw error;
+      return;
     } finally {
       if (workingDirectory) {
         await rm(workingDirectory, { force: true, recursive: true }).catch(() => undefined);
