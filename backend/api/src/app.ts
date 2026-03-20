@@ -135,7 +135,7 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
     credentials: true,
     exposedHeaders: buildCorsHeaderList(config.auth.csrf.headerName, ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]),
     methods: ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
-    origin: buildCorsOriginResolver(config.runtime.api.corsOrigins)
+    origin: buildAllowedCorsOrigins(config.runtime.api.corsOrigins)
   });
 
   await registerAuthModule(app, config, context);
@@ -198,29 +198,13 @@ function buildCorsHeaderList(csrfHeaderName: string, baseHeaders: string[]): str
   return [...new Set([...baseHeaders, csrfHeaderName, csrfHeaderName.toLowerCase()])];
 }
 
-function buildCorsOriginResolver(allowedOrigins: string[]): (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => void {
-  const expandedOrigins = new Set(
+function buildAllowedCorsOrigins(allowedOrigins: string[]): string[] {
+  return [...new Set(
     allowedOrigins
       .flatMap((origin) => expandCorsOriginAliases(origin))
       .map(normalizeOrigin)
       .filter((origin): origin is string => origin !== null)
-  );
-
-  return (origin, callback) => {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    if (normalizedOrigin && expandedOrigins.has(normalizedOrigin)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
-  };
+  )];
 }
 
 function expandCorsOriginAliases(origin: string): string[] {
@@ -237,14 +221,28 @@ function expandCorsOriginAliases(origin: string): string[] {
   }
 
   const candidateHosts = new Set([parsedOrigin.hostname, "localhost", "127.0.0.1", "[::1]", getHostname().toLowerCase()]);
+  const candidatePorts = buildCorsPortAliases(parsedOrigin.port);
   const candidateOrigins: string[] = [];
 
   for (const host of candidateHosts) {
-    const nextOrigin = `${parsedOrigin.protocol}//${host}${parsedOrigin.port ? `:${parsedOrigin.port}` : ""}`;
-    candidateOrigins.push(nextOrigin);
+    for (const port of candidatePorts) {
+      const nextOrigin = `${parsedOrigin.protocol}//${host}${port ? `:${port}` : ""}`;
+      candidateOrigins.push(nextOrigin);
+    }
   }
 
   return candidateOrigins;
+}
+
+function buildCorsPortAliases(port: string): string[] {
+  const aliases = new Set<string>([port]);
+
+  if (port === "5173" || port === "4173") {
+    aliases.add("5173");
+    aliases.add("4173");
+  }
+
+  return [...aliases];
 }
 
 function isAliasFriendlyHostname(hostname: string): boolean {
@@ -272,4 +270,7 @@ function tryParseUrl(origin: string): URL | null {
     return null;
   }
 }
+
+
+
 
