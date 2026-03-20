@@ -246,10 +246,6 @@ function resolveApiBaseUrl(configuredValue: string): string {
   }
 
   if (normalizedValue === "") {
-    if (window.location.port === "5173" || window.location.port === "4173") {
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
-    }
-
     return "";
   }
 

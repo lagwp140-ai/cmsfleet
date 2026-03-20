@@ -28,7 +28,7 @@ The repo now includes a cross-platform local development toolchain:
 After `git pull` on Linux:
 
 ```bash
-cd /opt/bucms/app
+cd /opt/buscms/app
 chmod +x scripts/deploy-linux.sh
 ./scripts/deploy-linux.sh
 ```
