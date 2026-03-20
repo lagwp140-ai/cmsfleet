@@ -42,51 +42,58 @@ const TRACKS: VehicleTrack[] = [
 
 loadLocalEnv();
 
-const options = parseOptions(process.argv.slice(2));
-const apiBaseUrl = options.apiBaseUrl ?? readApiBaseUrl();
-const intervalMs = options.intervalMs ?? 2500;
-const iterations = options.once ? 1 : options.iterations ?? 20;
-const selectedTracks = options.vehicleCodes.length > 0
-  ? TRACKS.filter((track) => options.vehicleCodes.includes(track.vehicleCode))
-  : TRACKS;
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
-if (selectedTracks.length === 0) {
-  throw new Error("No matching vehicles were found for the requested mock GPS run.");
-}
+async function main(): Promise<void> {
+  const options = parseOptions(process.argv.slice(2));
+  const apiBaseUrl = options.apiBaseUrl ?? readApiBaseUrl();
+  const intervalMs = options.intervalMs ?? 2500;
+  const iterations = options.once ? 1 : options.iterations ?? 20;
+  const selectedTracks = options.vehicleCodes.length > 0
+    ? TRACKS.filter((track) => options.vehicleCodes.includes(track.vehicleCode))
+    : TRACKS;
 
-for (let iteration = 0; iteration < iterations; iteration += 1) {
-  const timestamp = new Date(Date.now() + iteration * 1000).toISOString();
-
-  for (const track of selectedTracks) {
-    const point = track.coordinates[iteration % track.coordinates.length]!;
-    const payload = {
-      heading: point.heading,
-      latitude: point.latitude,
-      longitude: point.longitude,
-      speed: point.speed,
-      timestamp,
-      unitCode: track.vehicleCode,
-      vehicleId: track.vehicleCode
-    };
-    const response = await fetch(`${apiBaseUrl}/api/ingest/gps/http`, {
-      body: JSON.stringify(payload),
-      headers: {
-        "content-type": "application/json"
-      },
-      method: "POST"
-    });
-    const body = await response.json().catch(() => ({}));
-    console.info(
-      `[gps] ${track.vehicleCode} -> ${response.status} ${body?.data?.message ?? body?.message ?? "ok"}`
-    );
+  if (selectedTracks.length === 0) {
+    throw new Error("No matching vehicles were found for the requested mock GPS run.");
   }
 
-  if (iteration < iterations - 1) {
-    await delay(intervalMs);
-  }
-}
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const timestamp = new Date(Date.now() + iteration * 1000).toISOString();
 
-console.info(`Mock GPS sender finished after ${iterations} iteration(s).`);
+    for (const track of selectedTracks) {
+      const point = track.coordinates[iteration % track.coordinates.length]!;
+      const payload = {
+        heading: point.heading,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        speed: point.speed,
+        timestamp,
+        unitCode: track.vehicleCode,
+        vehicleId: track.vehicleCode
+      };
+      const response = await fetch(`${apiBaseUrl}/api/ingest/gps/http`, {
+        body: JSON.stringify(payload),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const body = await response.json().catch(() => ({}));
+      console.info(
+        `[gps] ${track.vehicleCode} -> ${response.status} ${body?.data?.message ?? body?.message ?? "ok"}`
+      );
+    }
+
+    if (iteration < iterations - 1) {
+      await delay(intervalMs);
+    }
+  }
+
+  console.info(`Mock GPS sender finished after ${iterations} iteration(s).`);
+}
 
 function parseOptions(argumentsList: string[]): {
   apiBaseUrl?: string;

@@ -136,7 +136,7 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     void loadUsers();
-  }, [canManageUsers, filters, loadUsers, user?.id]);
+  }, [canManageUsers, filters.role, filters.search, filters.status, user?.id]);
 
   function handleSelectUser(account: ManagedUserRecord) {
     setSelectedUserId(account.id);
@@ -659,4 +659,5 @@ function validateUserForm(input: ManagedUserMutationInput): string | null {
 
   return null;
 }
+
 

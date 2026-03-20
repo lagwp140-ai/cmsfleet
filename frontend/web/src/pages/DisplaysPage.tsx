@@ -97,7 +97,7 @@ export function DisplaysPage() {
 
   useEffect(() => {
     void loadDomain();
-  }, [canManageDisplays, loadDomain]);
+  }, [canManageDisplays]);
 
   function updateCommandField<K extends keyof DisplayCommandFormState>(field: K, value: DisplayCommandFormState[K]) {
     setCommandInput((current) => ({
@@ -597,4 +597,5 @@ const textAreaStyle = {
   minHeight: "112px",
   resize: "vertical"
 } as const;
+
 

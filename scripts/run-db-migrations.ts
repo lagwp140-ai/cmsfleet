@@ -14,6 +14,7 @@ main().catch((error) => {
 
 async function main(): Promise<void> {
   const direction = readDirection(process.argv[2]);
+  const startAt = readStartAt(process.argv[3]);
   const migrationsDirectory = join(repoRoot, "backend", "api", "db", "migrations");
   const connectionString =
     process.env.CMS_DATABASE_URL?.trim() ||
@@ -27,22 +28,32 @@ async function main(): Promise<void> {
       .filter((fileName) => fileName.endsWith(suffix))
       .sort((left, right) => direction === "down" ? right.localeCompare(left) : left.localeCompare(right));
 
-    if (migrationFiles.length === 0) {
-      console.info(`No ${direction} migrations found in ${migrationsDirectory}.`);
+    const selectedFiles = startAt ? migrationFiles.filter((fileName) => matchesStartAt(fileName, startAt, direction)) : migrationFiles;
+
+    if (selectedFiles.length === 0) {
+      console.info(
+        startAt
+          ? `No ${direction} migrations found in ${migrationsDirectory} starting at ${startAt}.`
+          : `No ${direction} migrations found in ${migrationsDirectory}.`
+      );
       return;
     }
 
-    for (const fileName of migrationFiles) {
+    for (const fileName of selectedFiles) {
       const filePath = join(migrationsDirectory, fileName);
-      const sql = readFileSync(filePath, "utf8");
+      const sql = stripUtf8Bom(readFileSync(filePath, "utf8"));
       console.info(`Applying ${fileName} ...`);
       await pool.query(sql);
     }
 
-    console.info(`Applied ${migrationFiles.length} ${direction} migration file(s).`);
+    console.info(`Applied ${selectedFiles.length} ${direction} migration file(s).`);
   } finally {
     await pool.end();
   }
+}
+
+function matchesStartAt(fileName: string, startAt: string, direction: "down" | "up"): boolean {
+  return direction === "down" ? fileName.localeCompare(startAt) <= 0 : fileName.localeCompare(startAt) >= 0;
 }
 
 function readDirection(value: string | undefined): "down" | "up" {
@@ -55,4 +66,17 @@ function readDirection(value: string | undefined): "down" | "up" {
   }
 
   throw new Error(`Unsupported migration direction: ${value}. Use 'up' or 'down'.`);
+}
+
+function readStartAt(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+function stripUtf8Bom(value: string): string {
+  return value.replace(/^\uFEFF/, "");
 }

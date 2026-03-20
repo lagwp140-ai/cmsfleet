@@ -132,7 +132,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     void loadOperations();
-  }, [loadOperations, permissionsKey, user?.id]);
+  }, [permissionsKey, user?.id]);
 
   async function handleRefresh() {
     await Promise.all([refreshConsole(), loadOperations()]);
@@ -707,5 +707,6 @@ function summarizeDatasetLabel(dataset: GtfsDatasetRecord | null): string {
 
   return `${label.slice(0, 15)}...`;
 }
+
 
 

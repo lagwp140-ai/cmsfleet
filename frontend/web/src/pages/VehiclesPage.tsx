@@ -88,7 +88,7 @@ export function VehiclesPage() {
 
   useEffect(() => {
     void loadVehicleScreen();
-  }, [loadVehicleScreen, user?.id]);
+  }, [user?.id]);
 
   function handleSelectVehicle(vehicle: VehicleRecord) {
     setEditorMode("edit");
@@ -648,5 +648,6 @@ function validateVehicleForm(input: VehicleMutationInput): string | null {
 
   return null;
 }
+
 
 

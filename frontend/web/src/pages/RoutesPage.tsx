@@ -59,7 +59,7 @@ export function RoutesPage() {
 
   useEffect(() => {
     void loadStatus();
-  }, [canManageRoutes, loadStatus]);
+  }, [canManageRoutes]);
 
   const summary = status?.summary;
   const vehicles = status?.vehicles ?? [];
@@ -271,4 +271,5 @@ function routeStateTone(state: RouteState): "accent" | "critical" | "good" | "ne
       return "neutral";
   }
 }
+
 

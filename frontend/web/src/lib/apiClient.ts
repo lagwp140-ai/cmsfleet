@@ -1,6 +1,9 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 const DEFAULT_CSRF_HEADER_NAME = "x-csrf-token";
+const IN_FLIGHT_GET_REQUESTS = new Map<string, Promise<unknown>>();
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const API_BASE_URL = resolveApiBaseUrl(RAW_API_BASE_URL);
 
 let csrfHeaderName = DEFAULT_CSRF_HEADER_NAME;
 let csrfToken: string | null = null;
@@ -54,8 +57,9 @@ export function clearCsrfToken(): void {
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers ?? {});
+  const requestUrl = `${API_BASE_URL}${path}`;
 
-  if (!headers.has("Content-Type")) {
+  if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -63,12 +67,33 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
     headers.set(csrfHeaderName, csrfToken);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const requestInit: RequestInit = {
     credentials: "include",
     ...init,
     headers,
     method
-  });
+  };
+
+  if (method === "GET" && init.body === undefined) {
+    const existingRequest = IN_FLIGHT_GET_REQUESTS.get(requestUrl);
+
+    if (existingRequest) {
+      return existingRequest as Promise<T>;
+    }
+
+    const pendingRequest = performJsonRequest<T>(requestUrl, requestInit).finally(() => {
+      IN_FLIGHT_GET_REQUESTS.delete(requestUrl);
+    });
+
+    IN_FLIGHT_GET_REQUESTS.set(requestUrl, pendingRequest as Promise<unknown>);
+    return pendingRequest;
+  }
+
+  return performJsonRequest<T>(requestUrl, requestInit);
+}
+
+async function performJsonRequest<T>(requestUrl: string, init: RequestInit): Promise<T> {
+  const response = await fetch(requestUrl, init);
 
   captureCsrfToken(response);
 
@@ -155,4 +180,41 @@ function isApiSuccessEnvelope<T>(payload: unknown): payload is ApiSuccessEnvelop
 
 function isPlainObject(value: unknown): value is Record<string, any> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resolveApiBaseUrl(configuredValue: string): string {
+  const normalizedValue = stripTrailingSlash(configuredValue);
+
+  if (typeof window === "undefined") {
+    return normalizedValue;
+  }
+
+  if (normalizedValue === "") {
+    if (window.location.port === "5173" || window.location.port === "4173") {
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+
+    return "";
+  }
+
+  try {
+    const configuredUrl = new URL(normalizedValue, window.location.origin);
+
+    if (shouldRewriteLoopbackHost(configuredUrl.hostname, window.location.hostname)) {
+      configuredUrl.hostname = window.location.hostname;
+      return stripTrailingSlash(configuredUrl.toString());
+    }
+
+    return stripTrailingSlash(configuredUrl.toString());
+  } catch {
+    return normalizedValue;
+  }
+}
+
+function shouldRewriteLoopbackHost(apiHostname: string, pageHostname: string): boolean {
+  return LOOPBACK_HOSTS.has(apiHostname.toLowerCase()) && !LOOPBACK_HOSTS.has(pageHostname.toLowerCase());
+}
+
+function stripTrailingSlash(value: string): string {
+  return value.replace(/\/$/, "");
 }

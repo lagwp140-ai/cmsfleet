@@ -122,7 +122,7 @@ export function AdminLogsPage() {
 
   useEffect(() => {
     void loadDiagnostics();
-  }, [filters.lane, filters.limit, filters.search, loadDiagnostics, permissionsKey, user?.id]);
+  }, [filters.lane, filters.limit, filters.search, permissionsKey, user?.id]);
 
   async function handleRefresh() {
     await Promise.all([refreshConsole(), loadDiagnostics()]);
@@ -425,3 +425,4 @@ function renderSystemEvents(events: SystemEventRecord[], locale?: string) {
     </div>
   );
 }
+

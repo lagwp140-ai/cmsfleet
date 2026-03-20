@@ -113,7 +113,7 @@ export function ConfigPage() {
 
   useEffect(() => {
     void loadConfigPage();
-  }, [loadConfigPage, user?.id]);
+  }, [user?.id]);
 
   async function handleSelectScope(scope: ConfigScopeSummary) {
     setIsLoading(true);

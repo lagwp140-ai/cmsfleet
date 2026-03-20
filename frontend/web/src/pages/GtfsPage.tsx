@@ -119,11 +119,11 @@ export function GtfsPage() {
 
   useEffect(() => {
     void loadOverview();
-  }, [canManageGtfs, loadOverview]);
+  }, [canManageGtfs]);
 
   useEffect(() => {
     void loadErrors(selectedJob);
-  }, [loadErrors, selectedJob]);
+  }, [canManageGtfs, selectedJob?.id, selectedJob?.status, selectedJob?.validationErrorCount, selectedJob?.warningCount]);
 
   async function handleImportFromPath() {
     if (!canManageGtfs || localPath.trim() === "") {
@@ -567,5 +567,7 @@ function readFileAsBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+
 
 

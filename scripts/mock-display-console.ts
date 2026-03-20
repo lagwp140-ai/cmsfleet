@@ -118,18 +118,47 @@ async function publishDisplayCommand(apiBaseUrl: string, cookie: string, input: 
 }
 
 async function fetchJson(url: string, cookie: string): Promise<Record<string, any>> {
-  const response = await fetch(url, {
-    headers: {
-      cookie
-    }
-  });
-  const body = await response.json().catch(() => ({}));
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        cookie
+      }
+    });
+    const body = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
+    if (response.ok) {
+      return body as Record<string, any>;
+    }
+
+    if (response.status === 429 && attempt < 3) {
+      const retryAfterMs = readRetryAfterMs(response, body as Record<string, any>);
+      console.warn(`[display] rate limited for ${url}; retrying in ${Math.ceil(retryAfterMs / 1000)}s`);
+      await delay(retryAfterMs);
+      continue;
+    }
+
     throw new Error(`Request failed for ${url}: ${response.status} ${JSON.stringify(body)}`);
   }
 
-  return body as Record<string, any>;
+  throw new Error(`Request failed for ${url}: retries exhausted`);
+}
+
+function readRetryAfterMs(response: Response, body: Record<string, any>): number {
+  const retryAfterHeader = response.headers.get("retry-after");
+  const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN;
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  const details = Array.isArray(body?.error?.details) ? body.error.details : [];
+  const retryAfterDetail = typeof details[0] === "string" ? details[0].match(/(\d+)/) : null;
+
+  if (retryAfterDetail) {
+    return Number(retryAfterDetail[1]) * 1000;
+  }
+
+  return 5000;
 }
 
 function parseArguments(argumentsList: string[]): ParsedArguments {
@@ -139,7 +168,7 @@ function parseArguments(argumentsList: string[]): ParsedArguments {
   const options: ParsedArguments = {
     command: commandValue,
     email: "admin@demo-city.local",
-    intervalMs: 2500,
+    intervalMs: 5000,
     limit: 10,
     password: process.env.CMSFLEET_DEV_PASSWORD ?? "Transit!Demo2026",
     systemStatus: "service_message"
@@ -199,4 +228,3 @@ function parseArguments(argumentsList: string[]): ParsedArguments {
 
   return options;
 }
-

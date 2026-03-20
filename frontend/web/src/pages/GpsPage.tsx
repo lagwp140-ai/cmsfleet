@@ -1,4 +1,4 @@
-ï»¿import { startTransition, useEffect, useEffectEvent, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { fetchGpsMessages, fetchGpsStatus } from "../admin/gpsClient";
@@ -12,12 +12,13 @@ import type {
 import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
+import { GpsMapPreview } from "../components/admin/GpsMapPreview";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
 
 export function GpsPage() {
   const navigate = useNavigate();
   const { dashboard } = useAdminConsole();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<RecentGpsMessageRecord[]>([]);
@@ -54,7 +55,7 @@ export function GpsPage() {
 
   useEffect(() => {
     void loadGpsData();
-  }, [loadGpsData]);
+  }, [user?.id]);
 
   const summary = status?.summary;
   const trackedVehicles = summary?.trackedVehicles ?? 0;
@@ -83,6 +84,10 @@ export function GpsPage() {
         <MetricCard detail="Vehicles that are stale, offline, or have not reported into the CMS yet." label="Needs attention" tone={attentionVehicles > 0 ? "warn" : "good"} value={String(attentionVehicles).padStart(2, "0")} />
         <MetricCard detail={`Moving now: ${movingVehicles}. Stopped with telemetry: ${stoppedVehicles}.`} label="Movement" tone={movingVehicles > 0 ? "accent" : "neutral"} value={String(movingVehicles).padStart(2, "0")} />
       </section>
+
+      <Panel description="Live bus positions rendered over an OpenStreetMap preview centered on Riga so dispatch can confirm where telemetry is landing right now." title="Riga map preview">
+        <GpsMapPreview locale={locale} vehicles={status?.vehicles ?? []} />
+      </Panel>
 
       <section className="panel-grid panel-grid--two">
         <Panel description="Runtime thresholds and processing behavior resolved from configuration and applied to the current GPS pipeline." title="Processing policy">
@@ -138,7 +143,7 @@ export function GpsPage() {
                     <strong>{message.vehicleCode ?? "unmatched device"}</strong>
                     <span>{formatTimestamp(message.receivedAt, locale)}</span>
                   </div>
-                  <div className="event-item__body">{message.ingestStatus.toUpperCase()} Â· {message.sourceName}</div>
+                  <div className="event-item__body">{message.ingestStatus.toUpperCase()} · {message.sourceName}</div>
                   <div className="event-item__meta">
                     <span className={`tone-pill tone-pill--${messageTone(message.ingestStatus)}`}>{message.ingestStatus}</span>
                     {message.providerMessageId ? <span>{message.providerMessageId}</span> : null}
@@ -160,7 +165,7 @@ export function GpsPage() {
             {status.vehicles.map((vehicle) => (
               <div className="detail-row" key={vehicle.vehicleId}>
                 <div>
-                  <div className="detail-row__label">{vehicle.vehicleCode} Â· {vehicle.label}</div>
+                  <div className="detail-row__label">{vehicle.vehicleCode} · {vehicle.label}</div>
                   <div className="detail-row__meta">{buildVehicleMeta(vehicle, locale)}</div>
                 </div>
                 <span className={`tone-pill tone-pill--${connectionTone(vehicle.connectionState)}`}>
@@ -211,7 +216,7 @@ function buildVehicleMeta(vehicle: GpsVehicleStatusRecord, locale?: string): str
     parts.push(`${vehicle.latitude.toFixed(5)}, ${vehicle.longitude.toFixed(5)}`);
   }
 
-  return parts.join(" Â· ");
+  return parts.join(" · ");
 }
 
 function connectionTone(state: GpsConnectionState): "accent" | "critical" | "good" | "neutral" | "warn" {
@@ -242,11 +247,11 @@ function formatAge(seconds: number): string {
 function formatConnectionLabel(state: GpsConnectionState, freshnessSeconds: number | null): string {
   switch (state) {
     case "online":
-      return freshnessSeconds === null ? "Online" : `Online Â· ${formatAge(freshnessSeconds)}`;
+      return freshnessSeconds === null ? "Online" : `Online · ${formatAge(freshnessSeconds)}`;
     case "stale":
-      return freshnessSeconds === null ? "Stale" : `Stale Â· ${formatAge(freshnessSeconds)}`;
+      return freshnessSeconds === null ? "Stale" : `Stale · ${formatAge(freshnessSeconds)}`;
     case "offline":
-      return freshnessSeconds === null ? "Offline" : `Offline Â· ${formatAge(freshnessSeconds)}`;
+      return freshnessSeconds === null ? "Offline" : `Offline · ${formatAge(freshnessSeconds)}`;
     case "unknown":
       return "No signal yet";
     default:
