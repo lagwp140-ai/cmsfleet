@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE auth.roles (
+CREATE TABLE IF NOT EXISTS auth.roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   role_key TEXT NOT NULL UNIQUE CHECK (role_key ~ '^[a-z][a-z0-9_]*$'),
   label TEXT NOT NULL,
@@ -10,14 +10,14 @@ CREATE TABLE auth.roles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth.permissions (
+CREATE TABLE IF NOT EXISTS auth.permissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   permission_key TEXT NOT NULL UNIQUE CHECK (permission_key ~ '^[a-z][a-z0-9:_-]*$'),
   description TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth.users (
+CREATE TABLE IF NOT EXISTS auth.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email CITEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE auth.users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth.user_roles (
+CREATE TABLE IF NOT EXISTS auth.user_roles (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role_id UUID NOT NULL REFERENCES auth.roles(id) ON DELETE CASCADE,
   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
@@ -36,18 +36,18 @@ CREATE TABLE auth.user_roles (
   PRIMARY KEY (user_id, role_id)
 );
 
-CREATE UNIQUE INDEX auth_user_roles_primary_user_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS auth_user_roles_primary_user_uidx
   ON auth.user_roles (user_id)
   WHERE is_primary;
 
-CREATE TABLE auth.role_permissions (
+CREATE TABLE IF NOT EXISTS auth.role_permissions (
   role_id UUID NOT NULL REFERENCES auth.roles(id) ON DELETE CASCADE,
   permission_id UUID NOT NULL REFERENCES auth.permissions(id) ON DELETE CASCADE,
   granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (role_id, permission_id)
 );
 
-CREATE TABLE auth.password_credentials (
+CREATE TABLE IF NOT EXISTS auth.password_credentials (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   password_hash TEXT NOT NULL,
   hash_algorithm TEXT NOT NULL DEFAULT 'pbkdf2_sha512',
@@ -56,7 +56,7 @@ CREATE TABLE auth.password_credentials (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE auth.sessions (
+CREATE TABLE IF NOT EXISTS auth.sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
@@ -70,24 +70,24 @@ CREATE TABLE auth.sessions (
   CHECK (expires_at > created_at)
 );
 
-CREATE INDEX auth_sessions_active_user_idx
+CREATE INDEX IF NOT EXISTS auth_sessions_active_user_idx
   ON auth.sessions (user_id, expires_at DESC)
   WHERE revoked_at IS NULL;
 
-CREATE INDEX auth_sessions_expiry_idx
+CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx
   ON auth.sessions (expires_at)
   WHERE revoked_at IS NULL;
 
-CREATE INDEX auth_users_status_email_idx
+CREATE INDEX IF NOT EXISTS auth_users_status_email_idx
   ON auth.users (status, email);
 
-CREATE INDEX auth_role_permissions_permission_idx
+CREATE INDEX IF NOT EXISTS auth_role_permissions_permission_idx
   ON auth.role_permissions (permission_id, role_id);
 
-CREATE INDEX auth_user_roles_role_idx
+CREATE INDEX IF NOT EXISTS auth_user_roles_role_idx
   ON auth.user_roles (role_id, user_id);
 
-CREATE VIEW auth.user_primary_roles AS
+CREATE OR REPLACE VIEW auth.user_primary_roles AS
 SELECT
   ur.user_id,
   r.id AS role_id,
@@ -98,7 +98,7 @@ FROM auth.user_roles ur
 JOIN auth.roles r ON r.id = ur.role_id
 WHERE ur.is_primary;
 
-CREATE VIEW auth.user_effective_permissions AS
+CREATE OR REPLACE VIEW auth.user_effective_permissions AS
 SELECT DISTINCT
   ur.user_id,
   r.id AS role_id,
@@ -111,3 +111,4 @@ JOIN auth.role_permissions rp ON rp.role_id = ur.role_id
 JOIN auth.permissions p ON p.id = rp.permission_id;
 
 COMMIT;
+

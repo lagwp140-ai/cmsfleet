@@ -16,6 +16,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "config:validate": "npm --workspace @cmsfleet/config-runtime run validate",
+    "deploy:linux": "bash ./scripts/deploy-linux.sh",
     "dev:api": "npm --workspace @cmsfleet/backend-api run dev",
     "dev:web": "npm --workspace @cmsfleet/frontend-web run dev",
     "dev:worker": "npm --workspace @cmsfleet/integration-worker run dev",
@@ -53,3 +54,4 @@
     "pg": "^8.13.3"
   }
 }
+
