@@ -124,7 +124,13 @@ function shuffle(characters: string[]): string[] {
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
     const swapIndex = (randomBytes(1)[0] ?? 0) % (index + 1);
     const current = shuffled[index];
-    shuffled[index] = shuffled[swapIndex] ?? current;
+    const swapValue = shuffled[swapIndex];
+
+    if (current === undefined || swapValue === undefined) {
+      continue;
+    }
+
+    shuffled[index] = swapValue;
     shuffled[swapIndex] = current;
   }
 

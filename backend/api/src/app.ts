@@ -17,6 +17,12 @@ import { registerPlatformModule } from "./modules/platform/module.js";
 import { registerRoutesModule } from "./modules/routes/module.js";
 import { registerVehiclesModule } from "./modules/vehicles/module.js";
 
+interface PoolRuntimeStats {
+  idleCount?: number;
+  totalCount?: number;
+  waitingCount?: number;
+}
+
 export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext) {
   const app = Fastify({
     logger: {
@@ -101,23 +107,24 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
     const startedAt = measureNow();
     await db.query("SELECT 1");
     const latencyMs = Math.max(0, measureNow() - startedAt);
+    const stats = readPoolStats(db);
 
     return {
       details: {
-        idleClients: db.idleCount,
-        totalClients: db.totalCount,
-        waitingClients: db.waitingCount
+        idleClients: stats.idleClients,
+        totalClients: stats.totalClients,
+        waitingClients: stats.waitingClients
       },
       kind: "dependency",
       message: "Database connection pool is healthy.",
       metrics: {
-        database_idle_clients: db.idleCount,
+        database_idle_clients: stats.idleClients,
         database_latency_ms: Number(latencyMs.toFixed(2)),
-        database_total_clients: db.totalCount,
-        database_waiting_clients: db.waitingCount
+        database_total_clients: stats.totalClients,
+        database_waiting_clients: stats.waitingClients
       },
       readiness: true,
-      status: db.waitingCount > 20 ? "warn" : "pass"
+      status: stats.waitingClients > 20 ? "warn" : "pass"
     };
   });
 
@@ -174,5 +181,12 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
   return app;
 }
 
+function readPoolStats(pool: Pool): { idleClients: number; totalClients: number; waitingClients: number } {
+  const stats = pool as Pool & PoolRuntimeStats;
 
-
+  return {
+    idleClients: stats.idleCount ?? 0,
+    totalClients: stats.totalCount ?? 0,
+    waitingClients: stats.waitingCount ?? 0
+  };
+}
