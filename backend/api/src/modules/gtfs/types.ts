@@ -71,7 +71,7 @@ export interface GtfsImportUploadInput {
   activateOnSuccess: boolean;
   datasetLabel?: string;
   fileName: string;
-  zipBase64: string;
+  zipBuffer: Buffer;
 }
 
 export interface GtfsImportPathInput {

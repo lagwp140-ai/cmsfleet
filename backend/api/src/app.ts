@@ -27,6 +27,7 @@ interface PoolRuntimeStats {
 
 export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext) {
   const app = Fastify({
+    bodyLimit: 64 * 1024 * 1024,
     logger: {
       level: config.runtime.observability.logLevel
     },

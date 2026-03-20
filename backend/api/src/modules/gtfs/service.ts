@@ -115,9 +115,7 @@ export class GtfsService {
     const workDirectory = await mkdtemp(join(tmpdir(), "cmsfleet-gtfs-upload-"));
     const fileName = sanitizeFileName(input.fileName.trim() || "gtfs-upload.zip");
     const zipPath = join(workDirectory, fileName);
-    const zipBuffer = Buffer.from(input.zipBase64, "base64");
-
-    await writeFile(zipPath, zipBuffer);
+    await writeFile(zipPath, input.zipBuffer);
 
     return this.runImport({
       activateOnSuccess: input.activateOnSuccess,

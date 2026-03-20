@@ -1,5 +1,5 @@
 import type { CmsConfig } from "@cmsfleet/config-runtime";
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { GtfsRepository } from "./repository.js";
 import { GtfsService } from "./service.js";
@@ -7,6 +7,10 @@ import { GtfsService } from "./service.js";
 export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig): Promise<void> {
   const repository = new GtfsRepository(app.db);
   const service = new GtfsService(config, app.log, repository, app.observability);
+
+  app.addContentTypeParser(["application/octet-stream", "application/zip", "application/x-zip-compressed"], { parseAs: "buffer" }, (_request, payload, done) => {
+    done(null, payload);
+  });
 
   app.observability.registerComponentProvider("gtfs_pipeline", async () => {
     const overview = await service.getOverview(5);
@@ -161,10 +165,10 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
       return;
     }
 
-    let body: { activateOnSuccess: boolean; datasetLabel?: string; fileName: string; zipBase64: string };
+    let body: { activateOnSuccess: boolean; datasetLabel?: string; fileName: string; zipBuffer: Buffer };
 
     try {
-      body = readUploadImportBody(request.body);
+      body = readUploadImportBody(request);
     } catch (error) {
       return reply.code(400).send({ message: error instanceof Error ? error.message : "Invalid GTFS upload request." });
     }
@@ -274,9 +278,28 @@ function readPathImportBody(body: unknown): { activateOnSuccess: boolean; datase
   };
 }
 
-function readUploadImportBody(body: unknown): { activateOnSuccess: boolean; datasetLabel?: string; fileName: string; zipBase64: string } {
+function readUploadImportBody(request: FastifyRequest): { activateOnSuccess: boolean; datasetLabel?: string; fileName: string; zipBuffer: Buffer } {
+  if (Buffer.isBuffer(request.body)) {
+    const query = isPlainObject(request.query) ? request.query : {};
+    const fileName = typeof query.fileName === "string" ? query.fileName.trim() : "";
+    const datasetLabel = typeof query.datasetLabel === "string" ? query.datasetLabel.trim() : "";
+
+    if (fileName === "" || request.body.length === 0) {
+      throw new Error("fileName and uploaded zip payload are required.");
+    }
+
+    return {
+      activateOnSuccess: readOptionalBoolean(query.activateOnSuccess) ?? false,
+      datasetLabel: datasetLabel !== "" ? datasetLabel : undefined,
+      fileName,
+      zipBuffer: request.body
+    };
+  }
+
+  const body = request.body;
+
   if (!isPlainObject(body)) {
-    throw new Error("GTFS upload body must be an object.");
+    throw new Error("GTFS upload body must be an object or a zip file payload.");
   }
 
   const fileName = typeof body.fileName === "string" ? body.fileName.trim() : "";
@@ -290,8 +313,28 @@ function readUploadImportBody(body: unknown): { activateOnSuccess: boolean; data
     activateOnSuccess: Boolean(body.activateOnSuccess),
     datasetLabel: typeof body.datasetLabel === "string" ? body.datasetLabel : undefined,
     fileName,
-    zipBase64
+    zipBuffer: Buffer.from(zipBase64, "base64")
   };
+}
+
+function readOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return undefined;
 }
 
 function sendGtfsError(app: FastifyInstance, reply: FastifyReply, error: unknown, fallbackMessage: string) {

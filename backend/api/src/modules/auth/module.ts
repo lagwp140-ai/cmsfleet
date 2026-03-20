@@ -249,7 +249,7 @@ export async function registerAuthModule(
   });
 
   app.post("/api/auth/logout", async (request, reply) => {
-    const authUser = await authenticateRequest(request, reply, { optional: true });
+    const authUser = await authenticateRequest(request, reply, { optional: true, skipCsrf: true });
 
     if (reply.sent) {
       return;

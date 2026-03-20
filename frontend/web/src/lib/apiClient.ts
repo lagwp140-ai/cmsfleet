@@ -1,5 +1,6 @@
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 const DEFAULT_CSRF_HEADER_NAME = "x-csrf-token";
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const IN_FLIGHT_GET_REQUESTS = new Map<string, Promise<unknown>>();
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
@@ -36,6 +37,10 @@ interface ApiErrorEnvelope {
   success: false;
 }
 
+type ApiRequestInit = RequestInit & {
+  timeoutMs?: number;
+};
+
 export class ApiError extends Error {
   readonly code?: string;
   readonly details?: unknown;
@@ -54,12 +59,13 @@ export function clearCsrfToken(): void {
   csrfToken = null;
 }
 
-export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const method = (init.method ?? "GET").toUpperCase();
-  const headers = new Headers(init.headers ?? {});
+export async function requestJson<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestOptions } = init;
+  const method = (requestOptions.method ?? "GET").toUpperCase();
+  const headers = new Headers(requestOptions.headers ?? {});
   const requestUrl = `${API_BASE_URL}${path}`;
 
-  if (init.body !== undefined && !headers.has("Content-Type")) {
+  if (requestOptions.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -69,19 +75,19 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
 
   const requestInit: RequestInit = {
     credentials: "include",
-    ...init,
+    ...requestOptions,
     headers,
     method
   };
 
-  if (method === "GET" && init.body === undefined) {
+  if (method === "GET" && requestOptions.body === undefined) {
     const existingRequest = IN_FLIGHT_GET_REQUESTS.get(requestUrl);
 
     if (existingRequest) {
       return existingRequest as Promise<T>;
     }
 
-    const pendingRequest = performJsonRequest<T>(requestUrl, requestInit).finally(() => {
+    const pendingRequest = performJsonRequest<T>(requestUrl, requestInit, timeoutMs).finally(() => {
       IN_FLIGHT_GET_REQUESTS.delete(requestUrl);
     });
 
@@ -89,11 +95,11 @@ export async function requestJson<T>(path: string, init: RequestInit = {}): Prom
     return pendingRequest;
   }
 
-  return performJsonRequest<T>(requestUrl, requestInit);
+  return performJsonRequest<T>(requestUrl, requestInit, timeoutMs);
 }
 
-async function performJsonRequest<T>(requestUrl: string, init: RequestInit): Promise<T> {
-  const response = await fetch(requestUrl, init);
+async function performJsonRequest<T>(requestUrl: string, init: RequestInit, timeoutMs: number): Promise<T> {
+  const response = await fetchWithTimeout(requestUrl, init, timeoutMs);
 
   captureCsrfToken(response);
 
@@ -157,6 +163,52 @@ function captureCsrfToken(response: Response): void {
   });
 }
 
+async function fetchWithTimeout(requestUrl: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const abortListener = () => controller.abort(externalSignal?.reason);
+  const timeoutId = timeoutMs > 0
+    ? setTimeout(() => controller.abort(new DOMException("Request timeout", "AbortError")), timeoutMs)
+    : null;
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener("abort", abortListener, { once: true });
+    }
+  }
+
+  try {
+    return await fetch(requestUrl, {
+      ...init,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (isAbortLikeError(error) && !externalSignal?.aborted && timeoutMs > 0) {
+      throw new ApiError(`Request timed out after ${Math.ceil(timeoutMs / 1000)} seconds.`, 408, {
+        code: "request_timeout"
+      });
+    }
+
+    if (error instanceof TypeError) {
+      throw new ApiError("Unable to reach the API. Check the backend address, CORS origins, and browser network access.", 0, {
+        code: "network_error"
+      });
+    }
+
+    throw error;
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+
+    if (externalSignal) {
+      externalSignal.removeEventListener("abort", abortListener);
+    }
+  }
+}
+
 function formatApiErrorMessage(message: string, details: unknown): string {
   if (Array.isArray(details) && details.every((item) => typeof item === "string")) {
     const suffix = details.join(" ").trim();
@@ -164,6 +216,10 @@ function formatApiErrorMessage(message: string, details: unknown): string {
   }
 
   return message;
+}
+
+function isAbortLikeError(value: unknown): boolean {
+  return value instanceof DOMException && value.name === "AbortError";
 }
 
 function isApiErrorEnvelope(payload: unknown): payload is ApiErrorEnvelope {

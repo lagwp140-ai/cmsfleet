@@ -268,12 +268,10 @@ export function GtfsPage() {
     setFeedback(null);
 
     try {
-      const zipBase64 = await readFileAsBase64(uploadFile);
       const result = await importGtfsUpload({
         activateOnSuccess: uploadActivateOnSuccess,
         datasetLabel: uploadDatasetLabel.trim() || undefined,
-        fileName: uploadFile.name,
-        zipBase64
+        file: uploadFile
       });
 
       await loadOverview(result.jobId, result.datasetId ?? selectedDatasetId);
@@ -798,24 +796,6 @@ function pickSelectedTripId(trips: GtfsTripCatalogRecord[], preferredTripId: str
   }
 
   return trips[0]?.id ?? null;
-}
-
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onerror = () => {
-      reject(new Error(`Unable to read ${file.name}.`));
-    };
-
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      const commaIndex = result.indexOf(",");
-      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-    };
-
-    reader.readAsDataURL(file);
-  });
 }
 
 function routeTypeLabel(routeType: number): string {

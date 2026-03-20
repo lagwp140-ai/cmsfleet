@@ -6,6 +6,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 APP_USER="${CMS_DEPLOY_USER:-buscms}"
 RESTART_COMMAND="${CMS_RESTART_COMMAND:-}"
+DEFAULT_SYSTEMD_SERVICES=(cmsfleet-api cmsfleet-web)
 SKIP_INSTALL=0
 SKIP_MIGRATIONS=0
 
@@ -49,10 +50,34 @@ run_as_app_user() {
   "$@"
 }
 
+resolve_restart_command() {
+  if [[ -n "${RESTART_COMMAND}" ]]; then
+    return
+  fi
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return
+  fi
+
+  local detected_services=()
+
+  for service in "${DEFAULT_SYSTEMD_SERVICES[@]}"; do
+    if systemctl status "${service}" >/dev/null 2>&1 || systemctl cat "${service}" >/dev/null 2>&1; then
+      detected_services+=("${service}")
+    fi
+  done
+
+  if [[ ${#detected_services[@]} -gt 0 ]]; then
+    RESTART_COMMAND="systemctl restart ${detected_services[*]}"
+  fi
+}
+
 echo "==> Project root: ${PROJECT_ROOT}"
 echo "==> Deploy user: ${APP_USER}"
 
 cd "${PROJECT_ROOT}"
+
+resolve_restart_command
 
 if [[ -d "${PROJECT_ROOT}/frontend/web/dist" ]] && [[ "$(id -u)" -eq 0 ]] && id "${APP_USER}" >/dev/null 2>&1; then
   echo "==> Fixing frontend build ownership"
@@ -89,6 +114,8 @@ Next restart step:
 Examples:
   CMS_RESTART_COMMAND="systemctl restart cmsfleet-api cmsfleet-web" ./scripts/deploy-linux.sh
   ./scripts/deploy-linux.sh --restart-command "systemctl restart cmsfleet-api"
+
+If cmsfleet-api or cmsfleet-web systemd units already exist, this script now restarts them automatically.
 
 Manual API restart example:
   cd ${PROJECT_ROOT}/backend/api

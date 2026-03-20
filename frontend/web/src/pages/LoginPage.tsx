@@ -41,26 +41,6 @@ export function LoginPage() {
     };
   }, []);
 
-  if (status === "loading") {
-    return (
-      <main style={pageStyle}>
-        <section style={heroStyle}>
-          <div style={badgeStyle}>Bus CMS Security</div>
-          <h1 style={titleStyle}>Secure operator login for every transport deployment</h1>
-          <p style={copyStyle}>Checking your existing session and preparing the correct operator workspace.</p>
-        </section>
-
-        <section style={formShellStyle}>
-          <div style={formStyle}>
-            <p style={eyebrowStyle}>Control Center</p>
-            <h2 style={formTitleStyle}>Restoring session</h2>
-            <p style={formCopyStyle}>Verifying your cookie-backed admin session before showing the sign-in form.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
   if (status === "authenticated") {
     return <Navigate replace to="/admin" />;
   }
@@ -120,6 +100,10 @@ export function LoginPage() {
           <p style={formCopyStyle}>
             Use your role account to enter the protected admin console. Minimum password length: {metadata?.passwordMinLength ?? 12} characters.
           </p>
+
+          {status === "loading" ? (
+            <p style={loadingNoticeStyle}>Checking your existing session in the background. You can still sign in manually.</p>
+          ) : null}
 
           <label style={labelStyle}>
             Email
@@ -279,6 +263,15 @@ const formCopyStyle = {
   margin: 0
 } as const;
 
+const loadingNoticeStyle = {
+  background: "#edf6ff",
+  border: "1px solid #bfd9f5",
+  borderRadius: "14px",
+  color: "#28567a",
+  margin: 0,
+  padding: "12px 14px"
+} as const;
+
 const labelStyle = {
   color: "#24415c",
   display: "grid",
@@ -313,4 +306,3 @@ const buttonStyle = {
   fontWeight: 700,
   padding: "14px 18px"
 } as const;
-
