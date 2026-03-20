@@ -43,14 +43,33 @@ type ApiRequestInit = RequestInit & {
   timeoutMs?: number;
 };
 
+export interface ApiAttemptDebugEntry {
+  baseUrl: string;
+  message: string;
+  requestUrl: string;
+  status?: number;
+  timeoutMs: number;
+}
+
+export interface ApiDebugInfo {
+  candidateBaseUrls: string[];
+  configuredBaseUrl: string;
+  path: string;
+  preferredBaseUrl: string;
+  requestUrls: string[];
+  attempts: ApiAttemptDebugEntry[];
+}
+
 export class ApiError extends Error {
   readonly code?: string;
+  readonly debug?: ApiDebugInfo;
   readonly details?: unknown;
   readonly status: number;
 
-  constructor(message: string, status: number, options: { code?: string; details?: unknown } = {}) {
+  constructor(message: string, status: number, options: { code?: string; debug?: ApiDebugInfo; details?: unknown } = {}) {
     super(message);
     this.code = options.code;
+    this.debug = options.debug;
     this.details = options.details;
     this.name = "ApiError";
     this.status = status;
@@ -59,6 +78,10 @@ export class ApiError extends Error {
 
 export function clearCsrfToken(): void {
   csrfToken = null;
+}
+
+export function getApiDebugInfo(path: string): ApiDebugInfo {
+  return buildApiDebugInfo(path, getCandidateApiBaseUrls());
 }
 
 export async function requestJson<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
@@ -101,7 +124,8 @@ export async function requestJson<T>(path: string, init: ApiRequestInit = {}): P
 }
 
 async function performJsonRequest<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
-  const response = await fetchWithFallback(path, init, timeoutMs);
+  const attempt = await fetchWithFallback(path, init, timeoutMs);
+  const { debug, response } = attempt;
 
   captureCsrfToken(response);
 
@@ -119,6 +143,7 @@ async function performJsonRequest<T>(path: string, init: RequestInit, timeoutMs:
     if (isApiErrorEnvelope(payload)) {
       throw new ApiError(formatApiErrorMessage(payload.error.message, payload.error.details), response.status, {
         code: payload.error.code,
+        debug,
         details: payload.error.details
       });
     }
@@ -126,7 +151,7 @@ async function performJsonRequest<T>(path: string, init: RequestInit, timeoutMs:
     const fallbackMessage = isPlainObject(payload) && typeof payload.message === "string"
       ? payload.message
       : `Request failed with status ${response.status}.`;
-    throw new ApiError(fallbackMessage, response.status);
+    throw new ApiError(fallbackMessage, response.status, { debug });
   }
 
   if (isApiSuccessEnvelope<T>(payload)) {
@@ -145,6 +170,17 @@ export async function readJson(response: Response): Promise<unknown> {
 }
 
 export const API_BASE_URL = preferredApiBaseUrl;
+
+function buildApiDebugInfo(path: string, candidateBaseUrls: string[]): ApiDebugInfo {
+  return {
+    attempts: [],
+    candidateBaseUrls,
+    configuredBaseUrl: RAW_API_BASE_URL,
+    path,
+    preferredBaseUrl: preferredApiBaseUrl,
+    requestUrls: candidateBaseUrls.map((baseUrl) => `${baseUrl}${path}`)
+  };
+}
 
 function captureCsrfToken(response: Response): void {
   const directToken = response.headers.get(csrfHeaderName) ?? response.headers.get(DEFAULT_CSRF_HEADER_NAME);
@@ -165,8 +201,13 @@ function captureCsrfToken(response: Response): void {
   });
 }
 
-async function fetchWithFallback(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithFallback(
+  path: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ debug: ApiDebugInfo; response: Response }> {
   const candidates = getCandidateApiBaseUrls();
+  const debug = buildApiDebugInfo(path, candidates);
   let lastError: unknown;
 
   for (let index = 0; index < candidates.length; index += 1) {
@@ -178,18 +219,34 @@ async function fetchWithFallback(path: string, init: RequestInit, timeoutMs: num
 
     try {
       const response = await fetchWithTimeout(requestUrl, init, attemptTimeout);
+      debug.attempts.push({
+        baseUrl,
+        message: response.ok ? "response_ok" : `response_${response.status}`,
+        requestUrl,
+        status: response.status,
+        timeoutMs: attemptTimeout
+      });
       preferredApiBaseUrl = baseUrl;
-      return response;
+      debug.preferredBaseUrl = preferredApiBaseUrl;
+      return { debug, response };
     } catch (error) {
-      lastError = error;
+      const apiError = toApiError(error, debug);
+      debug.attempts.push({
+        baseUrl,
+        message: apiError.code ?? apiError.name,
+        requestUrl,
+        status: apiError.status || undefined,
+        timeoutMs: attemptTimeout
+      });
+      lastError = apiError;
 
-      if (!shouldRetryWithAlternativeBase(error) || index === candidates.length - 1) {
-        throw error;
+      if (!shouldRetryWithAlternativeBase(apiError) || index === candidates.length - 1) {
+        throw apiError;
       }
     }
   }
 
-  throw lastError instanceof Error ? lastError : new ApiError("Unable to reach the API.", 0, { code: "network_error" });
+  throw toApiError(lastError, debug);
 }
 
 async function fetchWithTimeout(requestUrl: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -279,31 +336,32 @@ function resolveApiBaseUrls(configuredValue: string): string[] {
   const normalizedValue = stripTrailingSlash(configuredValue);
 
   if (typeof window === "undefined") {
-    return normalizedValue === "" ? [""] : [normalizedValue];
+    return normalizedValue === "" ? [""] : ["", normalizedValue];
   }
 
-  if (normalizedValue === "") {
-    const candidates = [""];
-    const directBackendUrl = buildDirectBackendUrl();
+  const candidates = [""];
 
-    if (directBackendUrl) {
-      candidates.push(directBackendUrl);
+  if (normalizedValue !== "") {
+    try {
+      const configuredUrl = new URL(normalizedValue, window.location.origin);
+
+      if (shouldRewriteLoopbackHost(configuredUrl.hostname, window.location.hostname)) {
+        configuredUrl.hostname = window.location.hostname;
+      }
+
+      candidates.push(stripTrailingSlash(configuredUrl.toString()));
+    } catch {
+      candidates.push(normalizedValue);
     }
-
-    return [...new Set(candidates)];
   }
 
-  try {
-    const configuredUrl = new URL(normalizedValue, window.location.origin);
+  const directBackendUrl = buildDirectBackendUrl();
 
-    if (shouldRewriteLoopbackHost(configuredUrl.hostname, window.location.hostname)) {
-      configuredUrl.hostname = window.location.hostname;
-    }
-
-    return [stripTrailingSlash(configuredUrl.toString())];
-  } catch {
-    return [normalizedValue];
+  if (directBackendUrl) {
+    candidates.push(directBackendUrl);
   }
+
+  return [...new Set(candidates)];
 }
 
 function buildDirectBackendUrl(): string | null {
@@ -328,4 +386,23 @@ function shouldRewriteLoopbackHost(apiHostname: string, pageHostname: string): b
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, "");
+}
+
+function toApiError(error: unknown, debug: ApiDebugInfo): ApiError {
+  if (error instanceof ApiError) {
+    return new ApiError(error.message, error.status, {
+      code: error.code,
+      debug,
+      details: error.details
+    });
+  }
+
+  if (error instanceof Error) {
+    return new ApiError(error.message, 0, { debug });
+  }
+
+  return new ApiError("Unable to reach the API.", 0, {
+    code: "network_error",
+    debug
+  });
 }

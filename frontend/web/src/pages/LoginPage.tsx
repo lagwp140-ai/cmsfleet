@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { fetchAuthMetadata } from "../auth/authClient";
 import type { AuthMetadataResponse } from "../auth/types";
 import { useAuth } from "../auth/AuthProvider";
+import { ApiError, getApiDebugInfo, type ApiDebugInfo } from "../lib/apiClient";
+
+interface LoginDebugState {
+  errorCode?: string;
+  info: ApiDebugInfo;
+  message: string;
+  status?: number;
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -13,6 +21,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [metadata, setMetadata] = useState<AuthMetadataResponse | null>(null);
+  const [debugState, setDebugState] = useState<LoginDebugState>(() => ({
+    info: getApiDebugInfo("/api/auth/login"),
+    message: "No login attempt yet."
+  }));
+  const browserOrigin = useMemo(() => (typeof window === "undefined" ? "server" : window.location.origin), []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -48,13 +61,32 @@ export function LoginPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setDebugState({
+      info: getApiDebugInfo("/api/auth/login"),
+      message: "Submitting login request..."
+    });
     setIsSubmitting(true);
 
     try {
       await login(email, password);
       navigate("/admin", { replace: true });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to sign in.");
+      if (submitError instanceof ApiError) {
+        setError(submitError.message);
+        setDebugState({
+          errorCode: submitError.code,
+          info: submitError.debug ?? getApiDebugInfo("/api/auth/login"),
+          message: submitError.message,
+          status: submitError.status
+        });
+      } else {
+        const fallbackMessage = submitError instanceof Error ? submitError.message : "Unable to sign in.";
+        setError(fallbackMessage);
+        setDebugState({
+          info: getApiDebugInfo("/api/auth/login"),
+          message: fallbackMessage
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -132,6 +164,40 @@ export function LoginPage() {
           <button disabled={isSubmitting} style={buttonStyle} type="submit">
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
+
+          <section style={debugPanelStyle}>
+            <div style={debugHeaderStyle}>
+              <strong>Auth debug</strong>
+              <span style={debugMetaStyle}>Origin: {browserOrigin}</span>
+            </div>
+            <div style={debugGridStyle}>
+              <span>Configured API base</span>
+              <code style={debugCodeStyle}>{debugState.info.configuredBaseUrl || "(empty)"}</code>
+              <span>Preferred API base</span>
+              <code style={debugCodeStyle}>{debugState.info.preferredBaseUrl || "same-origin"}</code>
+              <span>Last error code</span>
+              <code style={debugCodeStyle}>{debugState.errorCode ?? "(none)"}</code>
+              <span>Last status</span>
+              <code style={debugCodeStyle}>{debugState.status === undefined ? "(none)" : String(debugState.status)}</code>
+            </div>
+            <p style={debugMessageStyle}>{debugState.message}</p>
+            <div style={debugListShellStyle}>
+              <strong style={debugListLabelStyle}>Candidate request URLs</strong>
+              {debugState.info.requestUrls.map((requestUrl) => (
+                <code key={requestUrl} style={debugCodeStyle}>{requestUrl}</code>
+              ))}
+            </div>
+            {debugState.info.attempts.length ? (
+              <div style={debugListShellStyle}>
+                <strong style={debugListLabelStyle}>Attempt results</strong>
+                {debugState.info.attempts.map((attempt, index) => (
+                  <code key={`${attempt.requestUrl}-${index}`} style={debugCodeStyle}>
+                    {attempt.requestUrl} | timeout {Math.ceil(attempt.timeoutMs / 1000)}s | {attempt.message}{attempt.status ? ` | status ${attempt.status}` : ""}
+                  </code>
+                ))}
+              </div>
+            ) : null}
+          </section>
         </form>
       </section>
     </main>
@@ -305,4 +371,60 @@ const buttonStyle = {
   fontSize: "1rem",
   fontWeight: 700,
   padding: "14px 18px"
+} as const;
+
+const debugPanelStyle = {
+  background: "#eef5fb",
+  border: "1px solid #c9d9e7",
+  borderRadius: "18px",
+  display: "grid",
+  gap: "10px",
+  padding: "14px"
+} as const;
+
+const debugHeaderStyle = {
+  alignItems: "center",
+  display: "flex",
+  gap: "12px",
+  justifyContent: "space-between"
+} as const;
+
+const debugMetaStyle = {
+  color: "#50657a",
+  fontSize: "0.84rem"
+} as const;
+
+const debugGridStyle = {
+  columnGap: "10px",
+  display: "grid",
+  gridTemplateColumns: "minmax(120px, 150px) minmax(0, 1fr)",
+  rowGap: "8px"
+} as const;
+
+const debugMessageStyle = {
+  color: "#2f4357",
+  margin: 0
+} as const;
+
+const debugListShellStyle = {
+  display: "grid",
+  gap: "6px"
+} as const;
+
+const debugListLabelStyle = {
+  color: "#314c62",
+  fontSize: "0.88rem"
+} as const;
+
+const debugCodeStyle = {
+  background: "#f7fbff",
+  border: "1px solid #d8e6f2",
+  borderRadius: "12px",
+  color: "#1d3550",
+  display: "block",
+  fontFamily: '"Cascadia Code", "Consolas", monospace',
+  fontSize: "0.8rem",
+  overflowX: "auto",
+  padding: "8px 10px",
+  whiteSpace: "nowrap"
 } as const;
