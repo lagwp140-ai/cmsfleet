@@ -1,3 +1,5 @@
+import { hostname as getHostname } from "node:os";
+
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { Pool } from "pg";
@@ -129,10 +131,11 @@ export async function buildApp(config: CmsConfig, context: ConfigRuntimeContext)
   });
 
   await app.register(cors, {
-    allowedHeaders: ["Content-Type", config.auth.csrf.headerName],
+    allowedHeaders: buildCorsHeaderList(config.auth.csrf.headerName, ["Accept", "Content-Type", "X-Requested-With"]),
     credentials: true,
-    exposedHeaders: [config.auth.csrf.headerName, "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
-    origin: config.runtime.api.corsOrigins
+    exposedHeaders: buildCorsHeaderList(config.auth.csrf.headerName, ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]),
+    methods: ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
+    origin: buildCorsOriginResolver(config.runtime.api.corsOrigins)
   });
 
   await registerAuthModule(app, config, context);
@@ -190,3 +193,83 @@ function readPoolStats(pool: Pool): { idleClients: number; totalClients: number;
     waitingClients: stats.waitingCount ?? 0
   };
 }
+
+function buildCorsHeaderList(csrfHeaderName: string, baseHeaders: string[]): string[] {
+  return [...new Set([...baseHeaders, csrfHeaderName, csrfHeaderName.toLowerCase()])];
+}
+
+function buildCorsOriginResolver(allowedOrigins: string[]): (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => void {
+  const expandedOrigins = new Set(
+    allowedOrigins
+      .flatMap((origin) => expandCorsOriginAliases(origin))
+      .map(normalizeOrigin)
+      .filter((origin): origin is string => origin !== null)
+  );
+
+  return (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (normalizedOrigin && expandedOrigins.has(normalizedOrigin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
+  };
+}
+
+function expandCorsOriginAliases(origin: string): string[] {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!normalizedOrigin) {
+    return [];
+  }
+
+  const parsedOrigin = tryParseUrl(normalizedOrigin);
+
+  if (!parsedOrigin || !isAliasFriendlyHostname(parsedOrigin.hostname)) {
+    return [normalizedOrigin];
+  }
+
+  const candidateHosts = new Set([parsedOrigin.hostname, "localhost", "127.0.0.1", "[::1]", getHostname().toLowerCase()]);
+  const candidateOrigins: string[] = [];
+
+  for (const host of candidateHosts) {
+    const nextOrigin = `${parsedOrigin.protocol}//${host}${parsedOrigin.port ? `:${parsedOrigin.port}` : ""}`;
+    candidateOrigins.push(nextOrigin);
+  }
+
+  return candidateOrigins;
+}
+
+function isAliasFriendlyHostname(hostname: string): boolean {
+  const normalizedHost = hostname.toLowerCase();
+  return normalizedHost === "localhost"
+    || normalizedHost === "127.0.0.1"
+    || normalizedHost === "[::1]"
+    || normalizedHost === getHostname().toLowerCase();
+}
+
+function normalizeOrigin(origin: string): string | null {
+  const parsedOrigin = tryParseUrl(origin);
+
+  if (!parsedOrigin) {
+    return null;
+  }
+
+  return `${parsedOrigin.protocol}//${parsedOrigin.hostname}${parsedOrigin.port ? `:${parsedOrigin.port}` : ""}`;
+}
+
+function tryParseUrl(origin: string): URL | null {
+  try {
+    return new URL(origin);
+  } catch {
+    return null;
+  }
+}
+

@@ -41,6 +41,26 @@ export function LoginPage() {
     };
   }, []);
 
+  if (status === "loading") {
+    return (
+      <main style={pageStyle}>
+        <section style={heroStyle}>
+          <div style={badgeStyle}>Bus CMS Security</div>
+          <h1 style={titleStyle}>Secure operator login for every transport deployment</h1>
+          <p style={copyStyle}>Checking your existing session and preparing the correct operator workspace.</p>
+        </section>
+
+        <section style={formShellStyle}>
+          <div style={formStyle}>
+            <p style={eyebrowStyle}>Control Center</p>
+            <h2 style={formTitleStyle}>Restoring session</h2>
+            <p style={formCopyStyle}>Verifying your cookie-backed admin session before showing the sign-in form.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (status === "authenticated") {
     return <Navigate replace to="/admin" />;
   }
@@ -293,3 +313,4 @@ const buttonStyle = {
   fontWeight: 700,
   padding: "14px 18px"
 } as const;
+

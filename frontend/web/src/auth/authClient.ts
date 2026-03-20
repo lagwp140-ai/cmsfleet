@@ -65,6 +65,8 @@ export async function fetchSession(): Promise<SessionUser | null> {
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
+  clearCsrfToken();
+
   return requestJson<LoginResponse>("/api/auth/login", {
     body: JSON.stringify({ email, password }),
     method: "POST"
@@ -80,3 +82,4 @@ export async function logout(): Promise<void> {
     clearCsrfToken();
   }
 }
+
