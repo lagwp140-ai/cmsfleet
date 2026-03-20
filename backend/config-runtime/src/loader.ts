@@ -1,14 +1,25 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-import AjvImport, { type ErrorObject } from "ajv";
-import addFormatsImport from "ajv-formats";
+import Ajv2020Module, { type ErrorObject } from "ajv/dist/2020.js";
+import addFormatsModule from "ajv-formats";
 
 import { readLoaderEnvironment } from "./env.js";
 import type { CmsConfig, ConfigSelection, LoadedCmsConfig, LoadCmsConfigOptions } from "./types.js";
 
-const Ajv = AjvImport as unknown as typeof import("ajv").default;
-const addFormats = addFormatsImport as unknown as typeof import("ajv-formats").default;
+type ConfigValidator = ((data: unknown) => boolean) & {
+  errors?: ErrorObject[];
+};
+
+interface AjvInstanceLike {
+  compile(schema: object): ConfigValidator;
+}
+
+type AjvConstructorLike = new (options?: Record<string, unknown>) => AjvInstanceLike;
+type AddFormatsLike = (ajv: AjvInstanceLike) => void;
+
+const Ajv2020 = Ajv2020Module as unknown as AjvConstructorLike;
+const addFormats = addFormatsModule as unknown as AddFormatsLike;
 
 const PROFILE_DIRECTORY_MAP = {
   deviceProfile: "device-profiles",
@@ -192,7 +203,7 @@ function resolveProfileName(
 
 function validateConfig(config: Record<string, unknown>, schemaPath: string): void {
   const schema = readJsonFile(schemaPath) as object;
-  const ajv = new Ajv({ allErrors: true, strict: true });
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
   addFormats(ajv);
 
   const validate = ajv.compile(schema);
