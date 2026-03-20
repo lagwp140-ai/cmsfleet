@@ -1,6 +1,6 @@
-﻿BEGIN;
+BEGIN;
 
-CREATE TABLE telemetry.vehicle_operational_states (
+CREATE TABLE IF NOT EXISTS telemetry.vehicle_operational_states (
   vehicle_id UUID PRIMARY KEY REFERENCES fleet.vehicles(id) ON DELETE CASCADE,
   last_received_message_id BIGINT,
   last_position_message_id BIGINT,
@@ -17,13 +17,13 @@ CREATE TABLE telemetry.vehicle_operational_states (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX telemetry_vehicle_operational_states_last_seen_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_operational_states_last_seen_idx
   ON telemetry.vehicle_operational_states (last_seen_at DESC);
 
-CREATE INDEX telemetry_vehicle_operational_states_movement_seen_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_operational_states_movement_seen_idx
   ON telemetry.vehicle_operational_states (movement_state, last_seen_at DESC);
 
-CREATE INDEX telemetry_vehicle_operational_states_source_seen_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_operational_states_source_seen_idx
   ON telemetry.vehicle_operational_states (source_name, last_seen_at DESC);
 
 INSERT INTO telemetry.vehicle_operational_states (
@@ -80,3 +80,4 @@ FROM telemetry.vehicle_positions p
 ON CONFLICT (vehicle_id) DO NOTHING;
 
 COMMIT;
+

@@ -1,6 +1,6 @@
-﻿BEGIN;
+BEGIN;
 
-CREATE TABLE operations.gtfs_datasets (
+CREATE TABLE IF NOT EXISTS operations.gtfs_datasets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   dataset_label TEXT NOT NULL UNIQUE,
@@ -19,14 +19,14 @@ CREATE TABLE operations.gtfs_datasets (
   UNIQUE (import_job_id)
 );
 
-CREATE UNIQUE INDEX operations_gtfs_datasets_active_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS operations_gtfs_datasets_active_uidx
   ON operations.gtfs_datasets (is_active)
   WHERE is_active;
 
-CREATE INDEX operations_gtfs_datasets_status_created_idx
+CREATE INDEX IF NOT EXISTS operations_gtfs_datasets_status_created_idx
   ON operations.gtfs_datasets (status, created_at DESC);
 
-CREATE TABLE operations.gtfs_import_errors (
+CREATE TABLE IF NOT EXISTS operations.gtfs_import_errors (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   severity TEXT NOT NULL CHECK (severity IN ('error', 'warn')),
@@ -39,10 +39,10 @@ CREATE TABLE operations.gtfs_import_errors (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX operations_gtfs_import_errors_job_idx
+CREATE INDEX IF NOT EXISTS operations_gtfs_import_errors_job_idx
   ON operations.gtfs_import_errors (import_job_id, severity, created_at DESC);
 
-CREATE TABLE operations.gtfs_staging_routes (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_routes (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   agency_id TEXT NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE operations.gtfs_staging_routes (
   PRIMARY KEY (import_job_id, row_number)
 );
 
-CREATE TABLE operations.gtfs_staging_stops (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_stops (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   agency_id TEXT NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE operations.gtfs_staging_stops (
   PRIMARY KEY (import_job_id, row_number)
 );
 
-CREATE TABLE operations.gtfs_staging_trips (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_trips (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   agency_id TEXT NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE operations.gtfs_staging_trips (
   PRIMARY KEY (import_job_id, row_number)
 );
 
-CREATE TABLE operations.gtfs_staging_stop_times (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_stop_times (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   trip_external_id TEXT NOT NULL,
@@ -120,6 +120,9 @@ ALTER TABLE operations.gtfs_import_jobs
   ADD COLUMN IF NOT EXISTS dataset_id UUID;
 
 ALTER TABLE operations.gtfs_import_jobs
+  DROP CONSTRAINT IF EXISTS gtfs_import_jobs_dataset_id_fkey;
+
+ALTER TABLE operations.gtfs_import_jobs
   ADD CONSTRAINT gtfs_import_jobs_dataset_id_fkey
   FOREIGN KEY (dataset_id) REFERENCES operations.gtfs_datasets(id) ON DELETE SET NULL;
 
@@ -136,10 +139,16 @@ ALTER TABLE transit.routes
   DROP CONSTRAINT IF EXISTS routes_agency_id_external_route_id_key;
 
 ALTER TABLE transit.routes
+  DROP CONSTRAINT IF EXISTS routes_dataset_agency_external_route_id_key;
+
+ALTER TABLE transit.routes
   ADD CONSTRAINT routes_dataset_agency_external_route_id_key UNIQUE (dataset_id, agency_id, external_route_id);
 
 ALTER TABLE transit.stops
   DROP CONSTRAINT IF EXISTS stops_agency_id_external_stop_id_key;
+
+ALTER TABLE transit.stops
+  DROP CONSTRAINT IF EXISTS stops_dataset_agency_external_stop_id_key;
 
 ALTER TABLE transit.stops
   ADD CONSTRAINT stops_dataset_agency_external_stop_id_key UNIQUE (dataset_id, agency_id, external_stop_id);
@@ -148,15 +157,19 @@ ALTER TABLE transit.trips
   DROP CONSTRAINT IF EXISTS trips_agency_id_external_trip_id_key;
 
 ALTER TABLE transit.trips
+  DROP CONSTRAINT IF EXISTS trips_dataset_agency_external_trip_id_key;
+
+ALTER TABLE transit.trips
   ADD CONSTRAINT trips_dataset_agency_external_trip_id_key UNIQUE (dataset_id, agency_id, external_trip_id);
 
-CREATE INDEX transit_routes_dataset_active_idx
+CREATE INDEX IF NOT EXISTS transit_routes_dataset_active_idx
   ON transit.routes (dataset_id, is_active, route_short_name);
 
-CREATE INDEX transit_stops_dataset_name_idx
+CREATE INDEX IF NOT EXISTS transit_stops_dataset_name_idx
   ON transit.stops (dataset_id, stop_name);
 
-CREATE INDEX transit_trips_dataset_active_idx
+CREATE INDEX IF NOT EXISTS transit_trips_dataset_active_idx
   ON transit.trips (dataset_id, is_active, service_id);
 
 COMMIT;
+

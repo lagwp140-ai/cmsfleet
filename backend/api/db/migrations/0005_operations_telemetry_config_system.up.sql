@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE operations.gtfs_import_jobs (
+CREATE TABLE IF NOT EXISTS operations.gtfs_import_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requested_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   source_uri TEXT NOT NULL,
@@ -21,13 +21,13 @@ CREATE TABLE operations.gtfs_import_jobs (
   CHECK (finished_at IS NULL OR finished_at >= started_at)
 );
 
-CREATE INDEX operations_gtfs_import_jobs_status_created_idx
+CREATE INDEX IF NOT EXISTS operations_gtfs_import_jobs_status_created_idx
   ON operations.gtfs_import_jobs (status, created_at DESC);
 
-CREATE INDEX operations_gtfs_import_jobs_finished_idx
+CREATE INDEX IF NOT EXISTS operations_gtfs_import_jobs_finished_idx
   ON operations.gtfs_import_jobs (finished_at DESC);
 
-CREATE TABLE operations.display_messages (
+CREATE TABLE IF NOT EXISTS operations.display_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_id UUID REFERENCES fleet.vehicles(id) ON DELETE SET NULL,
   route_id UUID REFERENCES transit.routes(id) ON DELETE SET NULL,
@@ -56,16 +56,16 @@ CREATE TABLE operations.display_messages (
   CHECK (effective_to IS NULL OR effective_from IS NULL OR effective_to >= effective_from)
 );
 
-CREATE INDEX operations_display_messages_vehicle_status_idx
+CREATE INDEX IF NOT EXISTS operations_display_messages_vehicle_status_idx
   ON operations.display_messages (vehicle_id, status, effective_from DESC);
 
-CREATE INDEX operations_display_messages_trip_channel_idx
+CREATE INDEX IF NOT EXISTS operations_display_messages_trip_channel_idx
   ON operations.display_messages (trip_id, channel, status);
 
-CREATE INDEX operations_display_messages_profile_channel_idx
+CREATE INDEX IF NOT EXISTS operations_display_messages_profile_channel_idx
   ON operations.display_messages (display_profile_id, channel, status);
 
-CREATE TABLE telemetry.gps_messages (
+CREATE TABLE IF NOT EXISTS telemetry.gps_messages (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
   source_name TEXT NOT NULL,
   provider_message_id TEXT,
@@ -87,25 +87,29 @@ CREATE TABLE telemetry.gps_messages (
   PRIMARY KEY (id, received_at)
 ) PARTITION BY RANGE (received_at);
 
-CREATE TABLE telemetry.gps_messages_default
-  PARTITION OF telemetry.gps_messages DEFAULT;
+DO $$
+BEGIN
+  IF to_regclass('telemetry.gps_messages_default') IS NULL THEN
+    EXECUTE 'CREATE TABLE telemetry.gps_messages_default PARTITION OF telemetry.gps_messages DEFAULT';
+  END IF;
+END $$;
 
-CREATE INDEX telemetry_gps_messages_received_at_brin_idx
+CREATE INDEX IF NOT EXISTS telemetry_gps_messages_received_at_brin_idx
   ON telemetry.gps_messages USING BRIN (received_at);
 
-CREATE INDEX telemetry_gps_messages_vehicle_time_idx
+CREATE INDEX IF NOT EXISTS telemetry_gps_messages_vehicle_time_idx
   ON telemetry.gps_messages (vehicle_id, position_time DESC);
 
-CREATE INDEX telemetry_gps_messages_trip_time_idx
+CREATE INDEX IF NOT EXISTS telemetry_gps_messages_trip_time_idx
   ON telemetry.gps_messages (trip_id, position_time DESC);
 
-CREATE INDEX telemetry_gps_messages_source_provider_idx
+CREATE INDEX IF NOT EXISTS telemetry_gps_messages_source_provider_idx
   ON telemetry.gps_messages (source_name, provider_message_id);
 
-CREATE INDEX telemetry_gps_messages_payload_gin_idx
+CREATE INDEX IF NOT EXISTS telemetry_gps_messages_payload_gin_idx
   ON telemetry.gps_messages USING GIN (raw_payload jsonb_path_ops);
 
-CREATE TABLE telemetry.vehicle_positions (
+CREATE TABLE IF NOT EXISTS telemetry.vehicle_positions (
   vehicle_id UUID PRIMARY KEY REFERENCES fleet.vehicles(id) ON DELETE CASCADE,
   last_gps_message_id BIGINT,
   last_gps_message_received_at TIMESTAMPTZ,
@@ -123,16 +127,16 @@ CREATE TABLE telemetry.vehicle_positions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX telemetry_vehicle_positions_route_recorded_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_positions_route_recorded_idx
   ON telemetry.vehicle_positions (route_id, recorded_at DESC);
 
-CREATE INDEX telemetry_vehicle_positions_trip_recorded_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_positions_trip_recorded_idx
   ON telemetry.vehicle_positions (trip_id, recorded_at DESC);
 
-CREATE INDEX telemetry_vehicle_positions_recorded_idx
+CREATE INDEX IF NOT EXISTS telemetry_vehicle_positions_recorded_idx
   ON telemetry.vehicle_positions (recorded_at DESC);
 
-CREATE TABLE config.config_versions (
+CREATE TABLE IF NOT EXISTS config.config_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   scope_type TEXT NOT NULL CHECK (scope_type IN ('global', 'tenant', 'transport', 'vehicle', 'device', 'display')),
   scope_key TEXT NOT NULL,
@@ -147,17 +151,17 @@ CREATE TABLE config.config_versions (
   UNIQUE (scope_type, scope_key, version_number)
 );
 
-CREATE UNIQUE INDEX config_versions_active_scope_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS config_versions_active_scope_uidx
   ON config.config_versions (scope_type, scope_key)
   WHERE is_active;
 
-CREATE INDEX config_versions_hash_idx
+CREATE INDEX IF NOT EXISTS config_versions_hash_idx
   ON config.config_versions (config_hash);
 
-CREATE INDEX config_versions_payload_gin_idx
+CREATE INDEX IF NOT EXISTS config_versions_payload_gin_idx
   ON config.config_versions USING GIN (payload jsonb_path_ops);
 
-CREATE TABLE system.audit_logs (
+CREATE TABLE IF NOT EXISTS system.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   actor_email CITEXT,
@@ -173,20 +177,20 @@ CREATE TABLE system.audit_logs (
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX system_audit_logs_occurred_idx
+CREATE INDEX IF NOT EXISTS system_audit_logs_occurred_idx
   ON system.audit_logs (occurred_at DESC);
 
-CREATE INDEX system_audit_logs_actor_occurred_idx
+CREATE INDEX IF NOT EXISTS system_audit_logs_actor_occurred_idx
   ON system.audit_logs (actor_user_id, occurred_at DESC);
 
-CREATE INDEX system_audit_logs_entity_idx
+CREATE INDEX IF NOT EXISTS system_audit_logs_entity_idx
   ON system.audit_logs (entity_type, entity_id, occurred_at DESC);
 
-CREATE INDEX system_audit_logs_request_id_idx
+CREATE INDEX IF NOT EXISTS system_audit_logs_request_id_idx
   ON system.audit_logs (request_id)
   WHERE request_id IS NOT NULL;
 
-CREATE TABLE system.system_events (
+CREATE TABLE IF NOT EXISTS system.system_events (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   event_type TEXT NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('debug', 'info', 'warn', 'error', 'critical')),
@@ -200,14 +204,15 @@ CREATE TABLE system.system_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX system_events_source_happened_idx
+CREATE INDEX IF NOT EXISTS system_events_source_happened_idx
   ON system.system_events (source, happened_at DESC);
 
-CREATE INDEX system_events_severity_happened_idx
+CREATE INDEX IF NOT EXISTS system_events_severity_happened_idx
   ON system.system_events (severity, happened_at DESC);
 
-CREATE INDEX system_events_payload_gin_idx
+CREATE INDEX IF NOT EXISTS system_events_payload_gin_idx
   ON system.system_events USING GIN (event_payload jsonb_path_ops);
 
 COMMIT;
+
 

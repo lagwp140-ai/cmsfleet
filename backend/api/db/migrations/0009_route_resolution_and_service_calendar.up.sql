@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE transit.service_calendars (
+CREATE TABLE IF NOT EXISTS transit.service_calendars (
   dataset_id UUID NOT NULL REFERENCES operations.gtfs_datasets(id) ON DELETE CASCADE,
   service_id TEXT NOT NULL,
   monday BOOLEAN NOT NULL DEFAULT FALSE,
@@ -18,10 +18,10 @@ CREATE TABLE transit.service_calendars (
   CHECK (end_date >= start_date)
 );
 
-CREATE INDEX transit_service_calendars_range_idx
+CREATE INDEX IF NOT EXISTS transit_service_calendars_range_idx
   ON transit.service_calendars (dataset_id, start_date, end_date, service_id);
 
-CREATE TABLE transit.service_calendar_dates (
+CREATE TABLE IF NOT EXISTS transit.service_calendar_dates (
   dataset_id UUID NOT NULL REFERENCES operations.gtfs_datasets(id) ON DELETE CASCADE,
   service_id TEXT NOT NULL,
   service_date DATE NOT NULL,
@@ -31,10 +31,10 @@ CREATE TABLE transit.service_calendar_dates (
   PRIMARY KEY (dataset_id, service_id, service_date)
 );
 
-CREATE INDEX transit_service_calendar_dates_lookup_idx
+CREATE INDEX IF NOT EXISTS transit_service_calendar_dates_lookup_idx
   ON transit.service_calendar_dates (dataset_id, service_date, service_id);
 
-CREATE TABLE operations.gtfs_staging_service_calendars (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_service_calendars (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   service_id TEXT NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE operations.gtfs_staging_service_calendars (
   PRIMARY KEY (import_job_id, row_number)
 );
 
-CREATE TABLE operations.gtfs_staging_service_calendar_dates (
+CREATE TABLE IF NOT EXISTS operations.gtfs_staging_service_calendar_dates (
   import_job_id UUID NOT NULL REFERENCES operations.gtfs_import_jobs(id) ON DELETE CASCADE,
   row_number INTEGER NOT NULL,
   service_id TEXT NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE operations.gtfs_staging_service_calendar_dates (
   PRIMARY KEY (import_job_id, row_number)
 );
 
-CREATE TABLE operations.vehicle_route_resolutions (
+CREATE TABLE IF NOT EXISTS operations.vehicle_route_resolutions (
   vehicle_id UUID PRIMARY KEY REFERENCES fleet.vehicles(id) ON DELETE CASCADE,
   resolution_source TEXT NOT NULL CHECK (resolution_source IN ('none', 'manual', 'schedule', 'gps_assisted')),
   route_state TEXT NOT NULL CHECK (route_state IN (
@@ -89,10 +89,11 @@ CREATE TABLE operations.vehicle_route_resolutions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX operations_vehicle_route_resolutions_state_eval_idx
+CREATE INDEX IF NOT EXISTS operations_vehicle_route_resolutions_state_eval_idx
   ON operations.vehicle_route_resolutions (route_state, evaluated_at DESC);
 
-CREATE INDEX operations_vehicle_route_resolutions_route_trip_idx
+CREATE INDEX IF NOT EXISTS operations_vehicle_route_resolutions_route_trip_idx
   ON operations.vehicle_route_resolutions (route_id, trip_id, service_date);
 
 COMMIT;
+

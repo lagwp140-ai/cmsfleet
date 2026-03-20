@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE fleet.device_profiles (
+CREATE TABLE IF NOT EXISTS fleet.device_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_key TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
@@ -12,13 +12,13 @@ CREATE TABLE fleet.device_profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX fleet_device_profiles_connectivity_gin_idx
+CREATE INDEX IF NOT EXISTS fleet_device_profiles_connectivity_gin_idx
   ON fleet.device_profiles USING GIN (connectivity jsonb_path_ops);
 
-CREATE INDEX fleet_device_profiles_capabilities_gin_idx
+CREATE INDEX IF NOT EXISTS fleet_device_profiles_capabilities_gin_idx
   ON fleet.device_profiles USING GIN (capabilities jsonb_path_ops);
 
-CREATE TABLE fleet.display_profiles (
+CREATE TABLE IF NOT EXISTS fleet.display_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_key TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
@@ -32,13 +32,13 @@ CREATE TABLE fleet.display_profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX fleet_display_profiles_mappings_gin_idx
+CREATE INDEX IF NOT EXISTS fleet_display_profiles_mappings_gin_idx
   ON fleet.display_profiles USING GIN (mappings jsonb_path_ops);
 
-CREATE INDEX fleet_display_profiles_capabilities_gin_idx
+CREATE INDEX IF NOT EXISTS fleet_display_profiles_capabilities_gin_idx
   ON fleet.display_profiles USING GIN (capabilities jsonb_path_ops);
 
-CREATE TABLE fleet.vehicles (
+CREATE TABLE IF NOT EXISTS fleet.vehicles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_code TEXT NOT NULL UNIQUE,
   external_vehicle_id TEXT UNIQUE,
@@ -56,16 +56,16 @@ CREATE TABLE fleet.vehicles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX fleet_vehicles_status_idx
+CREATE INDEX IF NOT EXISTS fleet_vehicles_status_idx
   ON fleet.vehicles (status, vehicle_code);
 
-CREATE INDEX fleet_vehicles_device_profile_idx
+CREATE INDEX IF NOT EXISTS fleet_vehicles_device_profile_idx
   ON fleet.vehicles (device_profile_id);
 
-CREATE INDEX fleet_vehicles_display_profile_idx
+CREATE INDEX IF NOT EXISTS fleet_vehicles_display_profile_idx
   ON fleet.vehicles (display_profile_id);
 
-CREATE TABLE transit.routes (
+CREATE TABLE IF NOT EXISTS transit.routes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_id TEXT NOT NULL,
   external_route_id TEXT NOT NULL,
@@ -82,16 +82,16 @@ CREATE TABLE transit.routes (
   UNIQUE (agency_id, external_route_id)
 );
 
-CREATE INDEX transit_routes_active_short_name_idx
+CREATE INDEX IF NOT EXISTS transit_routes_active_short_name_idx
   ON transit.routes (is_active, route_short_name);
 
-CREATE INDEX transit_routes_short_name_trgm_idx
+CREATE INDEX IF NOT EXISTS transit_routes_short_name_trgm_idx
   ON transit.routes USING GIN (route_short_name gin_trgm_ops);
 
-CREATE INDEX transit_routes_long_name_trgm_idx
+CREATE INDEX IF NOT EXISTS transit_routes_long_name_trgm_idx
   ON transit.routes USING GIN ((COALESCE(route_long_name, '')) gin_trgm_ops);
 
-CREATE TABLE transit.stops (
+CREATE TABLE IF NOT EXISTS transit.stops (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_id TEXT NOT NULL,
   external_stop_id TEXT NOT NULL,
@@ -110,16 +110,16 @@ CREATE TABLE transit.stops (
   UNIQUE (agency_id, external_stop_id)
 );
 
-CREATE INDEX transit_stops_name_trgm_idx
+CREATE INDEX IF NOT EXISTS transit_stops_name_trgm_idx
   ON transit.stops USING GIN (stop_name gin_trgm_ops);
 
-CREATE INDEX transit_stops_parent_idx
+CREATE INDEX IF NOT EXISTS transit_stops_parent_idx
   ON transit.stops (parent_stop_id);
 
-CREATE INDEX transit_stops_lat_lon_idx
+CREATE INDEX IF NOT EXISTS transit_stops_lat_lon_idx
   ON transit.stops (latitude, longitude);
 
-CREATE TABLE transit.route_variants (
+CREATE TABLE IF NOT EXISTS transit.route_variants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id UUID NOT NULL REFERENCES transit.routes(id) ON DELETE CASCADE,
   variant_code TEXT NOT NULL,
@@ -134,10 +134,10 @@ CREATE TABLE transit.route_variants (
   UNIQUE (route_id, variant_code)
 );
 
-CREATE INDEX transit_route_variants_route_direction_idx
+CREATE INDEX IF NOT EXISTS transit_route_variants_route_direction_idx
   ON transit.route_variants (route_id, direction_id, is_active);
 
-CREATE TABLE transit.trips (
+CREATE TABLE IF NOT EXISTS transit.trips (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_id TEXT NOT NULL,
   external_trip_id TEXT NOT NULL,
@@ -158,16 +158,16 @@ CREATE TABLE transit.trips (
   UNIQUE (agency_id, external_trip_id)
 );
 
-CREATE INDEX transit_trips_route_service_idx
+CREATE INDEX IF NOT EXISTS transit_trips_route_service_idx
   ON transit.trips (route_id, service_id, direction_id);
 
-CREATE INDEX transit_trips_route_variant_idx
+CREATE INDEX IF NOT EXISTS transit_trips_route_variant_idx
   ON transit.trips (route_variant_id, service_id);
 
-CREATE INDEX transit_trips_active_headsign_idx
+CREATE INDEX IF NOT EXISTS transit_trips_active_headsign_idx
   ON transit.trips (is_active, trip_headsign);
 
-CREATE TABLE transit.stop_times (
+CREATE TABLE IF NOT EXISTS transit.stop_times (
   trip_id UUID NOT NULL REFERENCES transit.trips(id) ON DELETE CASCADE,
   stop_sequence INTEGER NOT NULL CHECK (stop_sequence > 0),
   stop_id UUID NOT NULL REFERENCES transit.stops(id) ON DELETE RESTRICT,
@@ -183,10 +183,11 @@ CREATE TABLE transit.stop_times (
   CHECK (departure_offset_seconds >= arrival_offset_seconds)
 );
 
-CREATE INDEX transit_stop_times_stop_lookup_idx
+CREATE INDEX IF NOT EXISTS transit_stop_times_stop_lookup_idx
   ON transit.stop_times (stop_id, arrival_offset_seconds, trip_id);
 
-CREATE INDEX transit_stop_times_trip_lookup_idx
+CREATE INDEX IF NOT EXISTS transit_stop_times_trip_lookup_idx
   ON transit.stop_times (trip_id, stop_sequence, stop_id);
 
 COMMIT;
+
