@@ -1,3 +1,4 @@
+import { formatConsoleClock, formatConsoleDateTime } from "../lib/time";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -634,12 +635,7 @@ function formatLongTime(timestamp: string | null, locale?: string): string {
     return "Unavailable";
   }
 
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function formatShortTime(timestamp: string | null, locale?: string): string {
@@ -647,10 +643,7 @@ function formatShortTime(timestamp: string | null, locale?: string): string {
     return "No fix";
   }
 
-  return new Date(timestamp).toLocaleTimeString(locale ?? undefined, {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return formatConsoleClock(timestamp, locale);
 }
 
 function getLatestVehicleUpdates(vehicles: GpsVehicleStatusRecord[]): GpsVehicleStatusRecord[] {
@@ -707,6 +700,10 @@ function summarizeDatasetLabel(dataset: GtfsDatasetRecord | null): string {
 
   return `${label.slice(0, 15)}...`;
 }
+
+
+
+
 
 
 

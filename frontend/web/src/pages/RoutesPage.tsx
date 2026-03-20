@@ -7,6 +7,7 @@ import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 export function RoutesPage() {
   const navigate = useNavigate();
@@ -225,12 +226,7 @@ function buildVehicleRouteMeta(vehicle: VehicleRouteResolutionRecord, locale?: s
 }
 
 function formatConsoleTime(timestamp: string, locale?: string): string {
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function formatLabel(value: string): string {
@@ -271,5 +267,8 @@ function routeStateTone(state: RouteState): "accent" | "critical" | "good" | "ne
       return "neutral";
   }
 }
+
+
+
 
 

@@ -54,6 +54,47 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
     }
   });
 
+  app.get("/api/admin/gtfs/datasets/:datasetId/catalog", async (request, reply) => {
+    const authUser = await app.requirePermission(request, reply, "dispatch:manage");
+
+    if (!authUser) {
+      return;
+    }
+
+    const params = request.params as { datasetId?: string };
+
+    if (!params.datasetId) {
+      return reply.code(400).send({ message: "datasetId is required." });
+    }
+
+    try {
+      return await service.getDatasetCatalog(params.datasetId, readOptionalRouteId(request.query));
+    } catch (error) {
+      return sendGtfsError(app, reply, error, "Unable to load GTFS dataset catalog.");
+    }
+  });
+
+  app.get("/api/admin/gtfs/datasets/:datasetId/trips/:tripId/stops", async (request, reply) => {
+    const authUser = await app.requirePermission(request, reply, "dispatch:manage");
+
+    if (!authUser) {
+      return;
+    }
+
+    const params = request.params as { datasetId?: string; tripId?: string };
+
+    if (!params.datasetId || !params.tripId) {
+      return reply.code(400).send({ message: "datasetId and tripId are required." });
+    }
+
+    try {
+      return {
+        stops: await service.getTripStops(params.datasetId, params.tripId)
+      };
+    } catch (error) {
+      return sendGtfsError(app, reply, error, "Unable to load GTFS trip stops.");
+    }
+  });
   app.get("/api/admin/gtfs/logs", async (request, reply) => {
     const authUser = await app.requirePermission(request, reply, "dispatch:manage");
 
@@ -178,6 +219,13 @@ export async function registerGtfsModule(app: FastifyInstance, config: CmsConfig
   });
 }
 
+function readOptionalRouteId(query: unknown): string | null {
+  if (!isPlainObject(query)) {
+    return null;
+  }
+
+  return typeof query.routeId === "string" && query.routeId.trim() !== "" ? query.routeId.trim() : null;
+}
 function readLogFilters(query: unknown): { search?: string; status?: "queued" | "running" | "succeeded" | "failed" | "cancelled" } {
   if (!isPlainObject(query)) {
     return {};
@@ -275,3 +323,4 @@ function sendGtfsError(app: FastifyInstance, reply: FastifyReply, error: unknown
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+

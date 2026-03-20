@@ -12,11 +12,13 @@ import { extractZipArchive } from "./archive.js";
 import { parseGtfsDirectory } from "./parser.js";
 import { GtfsRepository } from "./repository.js";
 import type {
+  GtfsDatasetCatalog,
   GtfsImportErrorRecord,
   GtfsImportJobRecord,
   GtfsImportPathInput,
   GtfsImportUploadInput,
   GtfsOverview,
+  GtfsTripStopRecord,
   GtfsValidationIssue,
   ParsedGtfsFeed
 } from "./types.js";
@@ -67,6 +69,26 @@ export class GtfsService {
 
   async getOverview(limit = 20): Promise<GtfsOverview> {
     return this.repository.getOverview(limit);
+  }
+
+  async getDatasetCatalog(datasetId: string, routeId: string | null): Promise<GtfsDatasetCatalog> {
+    const catalog = await this.repository.getDatasetCatalog(datasetId, routeId, { routes: 400, trips: 500 });
+
+    if (!catalog) {
+      throw new Error("GTFS dataset not found.");
+    }
+
+    return catalog;
+  }
+
+  async getTripStops(datasetId: string, tripId: string): Promise<GtfsTripStopRecord[]> {
+    const dataset = await this.repository.findDatasetById(datasetId);
+
+    if (!dataset) {
+      throw new Error("GTFS dataset not found.");
+    }
+
+    return this.repository.listTripStops(datasetId, tripId);
   }
 
   async importFromLocalPath(
@@ -383,3 +405,5 @@ async function rollbackQuietly(client: PoolClient, logger: FastifyBaseLogger): P
     logger.error({ err: error }, "Failed to roll back GTFS transaction");
   }
 }
+
+

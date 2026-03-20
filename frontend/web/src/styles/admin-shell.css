@@ -62,7 +62,7 @@ button:hover {
 .console-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
 }
 
 .console-sidebar {
@@ -70,7 +70,7 @@ button:hover {
   border-right: 1px solid var(--sidebar-border);
   color: var(--sidebar-text);
   display: grid;
-  gap: 18px;
+  gap: 14px;
   padding: 24px 18px;
 }
 
@@ -166,7 +166,7 @@ button:hover {
 
 .sidebar-nav {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .sidebar-nav__group {
@@ -213,16 +213,16 @@ button:hover {
 
 .sidebar-nav__item-label {
   color: #eff5fa;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
 .sidebar-nav__item-description {
   color: var(--sidebar-muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   line-height: 1.45;
   margin-top: 4px;
-  max-width: 180px;
+  max-width: 156px;
 }
 
 .nav-badge {
@@ -255,8 +255,8 @@ button:hover {
 
 .console-main {
   display: grid;
-  gap: 18px;
-  padding: 18px;
+  gap: 14px;
+  padding: 14px;
 }
 
 .console-header {
@@ -265,8 +265,8 @@ button:hover {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 18px;
-  padding: 22px 24px;
+  gap: 14px;
+  padding: 18px 20px;
 }
 
 .console-header__eyebrow,
@@ -282,7 +282,7 @@ button:hover {
 .console-header__title,
 .page-header__title {
   font-family: "Bahnschrift", "Aptos", "Segoe UI", sans-serif;
-  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-size: clamp(1.65rem, 2.4vw, 2.35rem);
   line-height: 1;
   margin: 0;
 }
@@ -377,14 +377,14 @@ button:hover {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   display: grid;
-  gap: 18px;
+  gap: 14px;
   min-height: 0;
-  padding: 22px;
+  padding: 14px;
 }
 
 .page-stack {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .page-header {
@@ -407,12 +407,12 @@ button:hover {
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 12px;
-  padding: 18px;
+  padding: 14px;
 }
 
 .metric-card__label {
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -420,7 +420,7 @@ button:hover {
 
 .metric-card__value {
   font-family: "Bahnschrift", "Aptos", "Segoe UI", sans-serif;
-  font-size: clamp(1.6rem, 2vw, 2.2rem);
+  font-size: clamp(1.35rem, 1.8vw, 1.9rem);
   line-height: 1;
 }
 
@@ -465,7 +465,7 @@ button:hover {
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 16px;
-  padding: 18px;
+  padding: 14px;
 }
 
 .console-panel__header {
@@ -625,7 +625,7 @@ button:hover {
   display: flex;
   justify-content: center;
   min-height: 160px;
-  padding: 18px;
+  padding: 14px;
   text-align: center;
 }
 
@@ -754,13 +754,13 @@ button:hover {
 
 .split-layout {
   display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 14px;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
 }
 
 .stack-card {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .form-grid {
@@ -780,7 +780,7 @@ button:hover {
 
 .field__label {
   color: #30485b;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1055,7 +1055,7 @@ button:hover {
 .diff-item__label,
 .history-item__title {
   color: #30485b;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1135,9 +1135,9 @@ button:hover {
 }
 
 .gps-map-viewport {
-  height: min(62vw, var(--gps-map-height));
+  height: min(54vw, var(--gps-map-height));
   max-height: var(--gps-map-height);
-  min-height: 320px;
+  min-height: 280px;
   overflow: hidden;
   position: relative;
   width: 100%;
@@ -1305,3 +1305,148 @@ button:hover {
 }
 
 
+
+
+.driver-page {
+  background: radial-gradient(circle at top left, rgba(12, 120, 186, 0.22), transparent 34%), linear-gradient(180deg, #edf2f7 0%, #dfe7ef 100%);
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.driver-hero {
+  display: grid;
+  gap: 10px;
+  margin: 0 auto 18px;
+  max-width: 1120px;
+}
+
+.driver-badge,
+.driver-card__eyebrow {
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.driver-title {
+  font-family: "Bahnschrift", "Aptos", "Segoe UI", sans-serif;
+  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  line-height: 1;
+  margin: 0;
+}
+
+.driver-copy {
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 68ch;
+}
+
+.driver-shell {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+.driver-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.driver-card--wide {
+  align-content: start;
+}
+
+.driver-card__header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.driver-card__title {
+  font-size: 1.1rem;
+  margin: 6px 0 0;
+}
+
+.driver-pin-display {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.driver-pin-display__slot {
+  align-items: center;
+  background: #f5f8fb;
+  border: 1px solid #d5e0e9;
+  border-radius: 18px;
+  display: grid;
+  font-size: 1.5rem;
+  height: 68px;
+  justify-content: center;
+}
+
+.driver-pin-display__slot--filled {
+  background: #ecf5fc;
+  border-color: #90bddc;
+}
+
+.driver-keypad {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.driver-keypad__button {
+  background: #ffffff;
+  border: 1px solid #cfd9e3;
+  border-radius: 18px;
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: "Bahnschrift", "Aptos", "Segoe UI", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  min-height: 74px;
+}
+
+.driver-keypad__button--clear {
+  background: var(--warn-soft);
+  border-color: #efd199;
+  color: #7b560f;
+  grid-column: 1 / -1;
+  min-height: 58px;
+}
+
+.driver-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.driver-panel {
+  background: #f6f9fc;
+  border: 1px solid #dce6ef;
+  border-radius: 18px;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.driver-panel span {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .driver-shell,
+  .driver-grid {
+    grid-template-columns: 1fr;
+  }
+}

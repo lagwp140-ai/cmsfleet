@@ -3,38 +3,52 @@ import { useNavigate } from "react-router-dom";
 
 import {
   activateGtfsDataset,
+  fetchGtfsDatasetCatalog,
   fetchGtfsErrors,
   fetchGtfsOverview,
+  fetchGtfsTripStops,
   importGtfsFromPath,
   importGtfsUpload,
   rollbackGtfsDataset
 } from "../admin/gtfsClient";
 import type {
+  GtfsDatasetCatalogResponse,
   GtfsDatasetRecord,
   GtfsImportErrorRecord,
   GtfsImportJobRecord,
-  GtfsOverviewResponse
+  GtfsOverviewResponse,
+  GtfsRouteCatalogRecord,
+  GtfsTripCatalogRecord,
+  GtfsTripStopRecord
 } from "../admin/gtfsTypes";
 import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime, formatGtfsOffset } from "../lib/time";
 
 export function GtfsPage() {
   const navigate = useNavigate();
   const { dashboard, refreshConsole } = useAdminConsole();
   const { logout, user } = useAuth();
+  const [catalog, setCatalog] = useState<GtfsDatasetCatalogResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<GtfsImportErrorRecord[]>([]);
   const [feedback, setFeedback] = useState<{ body: string; title: string; tone: "critical" | "good" | "warn" } | null>(null);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [isErrorsLoading, setIsErrorsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStopsLoading, setIsStopsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localPath, setLocalPath] = useState("");
   const [localPathActivateOnSuccess, setLocalPathActivateOnSuccess] = useState(false);
   const [localPathDatasetLabel, setLocalPathDatasetLabel] = useState("");
   const [overview, setOverview] = useState<GtfsOverviewResponse | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [tripStops, setTripStops] = useState<GtfsTripStopRecord[]>([]);
   const [uploadActivateOnSuccess, setUploadActivateOnSuccess] = useState(true);
   const [uploadDatasetLabel, setUploadDatasetLabel] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -45,6 +59,9 @@ export function GtfsPage() {
   const datasets = overview?.datasets ?? [];
   const activeDataset = overview?.activeDataset ?? null;
   const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
+  const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId) ?? activeDataset;
+  const selectedRoute = catalog?.routes.find((route) => route.id === selectedRouteId) ?? null;
+  const selectedTrip = catalog?.trips.find((trip) => trip.id === selectedTripId) ?? null;
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
   const pendingActivationCount = datasets.filter((dataset) => !dataset.isActive).length;
   const totalValidationIssues = jobs.reduce((sum, job) => sum + job.validationErrorCount + job.warningCount, 0);
@@ -54,11 +71,16 @@ export function GtfsPage() {
     navigate("/login", { replace: true });
   });
 
-  const loadOverview = useEffectEvent(async (preferredJobId?: string | null) => {
+  const loadOverview = useEffectEvent(async (preferredJobId?: string | null, preferredDatasetId?: string | null) => {
     if (!canManageGtfs) {
       setIsLoading(false);
       setOverview(null);
+      setSelectedDatasetId(null);
       setSelectedJobId(null);
+      setSelectedRouteId(null);
+      setSelectedTripId(null);
+      setTripStops([]);
+      setCatalog(null);
       setErrors([]);
       return;
     }
@@ -69,9 +91,11 @@ export function GtfsPage() {
     try {
       const nextOverview = await fetchGtfsOverview();
       const nextSelectedJobId = pickSelectedJobId(nextOverview.jobs, preferredJobId ?? selectedJobId);
+      const nextSelectedDatasetId = pickSelectedDatasetId(nextOverview.datasets, preferredDatasetId ?? selectedDatasetId, nextOverview.activeDataset?.id ?? null);
 
       startTransition(() => {
         setOverview(nextOverview);
+        setSelectedDatasetId(nextSelectedDatasetId);
         setSelectedJobId(nextSelectedJobId);
       });
     } catch (requestError) {
@@ -88,6 +112,40 @@ export function GtfsPage() {
       setError(requestError instanceof Error ? requestError.message : "Unable to load GTFS import overview.");
     } finally {
       setIsLoading(false);
+    }
+  });
+
+  const loadCatalog = useEffectEvent(async (datasetId: string | null, preferredRouteId?: string | null, preferredTripId?: string | null) => {
+    if (!canManageGtfs || !datasetId) {
+      setCatalog(null);
+      setIsCatalogLoading(false);
+      setSelectedRouteId(null);
+      setSelectedTripId(null);
+      setTripStops([]);
+      return;
+    }
+
+    setIsCatalogLoading(true);
+
+    try {
+      const nextCatalog = await fetchGtfsDatasetCatalog(datasetId, preferredRouteId ?? selectedRouteId ?? undefined);
+      const nextSelectedRouteId = nextCatalog.selectedRouteId;
+      const nextSelectedTripId = pickSelectedTripId(nextCatalog.trips, preferredTripId ?? selectedTripId);
+
+      startTransition(() => {
+        setCatalog(nextCatalog);
+        setSelectedRouteId(nextSelectedRouteId);
+        setSelectedTripId(nextSelectedTripId);
+      });
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
+
+      setError(requestError instanceof Error ? requestError.message : "Unable to load the GTFS dataset catalog.");
+    } finally {
+      setIsCatalogLoading(false);
     }
   });
 
@@ -117,13 +175,47 @@ export function GtfsPage() {
     }
   });
 
+  const loadTripStops = useEffectEvent(async (datasetId: string | null, tripId: string | null) => {
+    if (!canManageGtfs || !datasetId || !tripId) {
+      setTripStops([]);
+      setIsStopsLoading(false);
+      return;
+    }
+
+    setIsStopsLoading(true);
+
+    try {
+      const nextStops = await fetchGtfsTripStops(datasetId, tripId);
+      startTransition(() => {
+        setTripStops(nextStops);
+      });
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
+
+      setError(requestError instanceof Error ? requestError.message : "Unable to load GTFS stop times for the selected trip.");
+    } finally {
+      setIsStopsLoading(false);
+    }
+  });
+
   useEffect(() => {
     void loadOverview();
   }, [canManageGtfs]);
 
   useEffect(() => {
+    void loadCatalog(selectedDatasetId);
+  }, [canManageGtfs, selectedDatasetId]);
+
+  useEffect(() => {
     void loadErrors(selectedJob);
   }, [canManageGtfs, selectedJob?.id, selectedJob?.status, selectedJob?.validationErrorCount, selectedJob?.warningCount]);
+
+  useEffect(() => {
+    void loadTripStops(selectedDatasetId, selectedTripId);
+  }, [canManageGtfs, selectedDatasetId, selectedTripId]);
 
   async function handleImportFromPath() {
     if (!canManageGtfs || localPath.trim() === "") {
@@ -142,13 +234,13 @@ export function GtfsPage() {
         filePath: localPath.trim()
       });
 
-      await loadOverview(result.jobId);
+      await loadOverview(result.jobId, result.datasetId ?? selectedDatasetId);
       await refreshConsole();
       setFeedback({
         body: result.status === "succeeded"
           ? localPathActivateOnSuccess
-            ? "The GTFS package was imported, validated, and activated for live route usage."
-            : "The GTFS package was imported and staged as a selectable dataset."
+            ? "The GTFS package was imported, validated, activated, and is now ready for route and trip inspection."
+            : "The GTFS package was imported and staged as a selectable dataset. Use the explorer below to inspect routes, trips, and stop sequences."
           : "The GTFS package was staged for review, but validation errors blocked activation.",
         title: result.status === "succeeded" ? "GTFS import completed" : "GTFS import needs review",
         tone: result.status === "succeeded" ? "good" : "warn"
@@ -184,13 +276,13 @@ export function GtfsPage() {
         zipBase64
       });
 
-      await loadOverview(result.jobId);
+      await loadOverview(result.jobId, result.datasetId ?? selectedDatasetId);
       await refreshConsole();
       setFeedback({
         body: result.status === "succeeded"
           ? uploadActivateOnSuccess
-            ? "The uploaded feed validated successfully and is now the active dataset."
-            : "The uploaded feed validated successfully and is ready for manual activation."
+            ? "The uploaded feed validated successfully, is active now, and can be explored route by route below."
+            : "The uploaded feed validated successfully and is ready for manual activation and inspection."
           : "The uploaded feed was stored for inspection, but validation blocked dataset creation.",
         title: result.status === "succeeded" ? "GTFS upload completed" : "GTFS upload needs review",
         tone: result.status === "succeeded" ? "good" : "warn"
@@ -235,12 +327,12 @@ export function GtfsPage() {
         await activateGtfsDataset(dataset.id);
       }
 
-      await loadOverview();
+      await loadOverview(null, dataset.id);
       await refreshConsole();
       setFeedback({
         body: rollback
           ? `${dataset.datasetLabel} is now restored as the active GTFS dataset.`
-          : `${dataset.datasetLabel} is now the active GTFS dataset for route and trip lookups.`,
+          : `${dataset.datasetLabel} is now the active GTFS dataset for route, trip, and stop-time lookups.`,
         title: rollback ? "Dataset rollback completed" : "Dataset activated",
         tone: "good"
       });
@@ -256,6 +348,17 @@ export function GtfsPage() {
     }
   }
 
+  function handleSelectDataset(datasetId: string) {
+    setSelectedDatasetId(datasetId);
+    setSelectedRouteId(null);
+    setSelectedTripId(null);
+    setTripStops([]);
+  }
+
+  function handleSelectRoute(routeId: string) {
+    void loadCatalog(selectedDatasetId, routeId, null);
+  }
+
   return (
     <div className="page-stack">
       <SectionHeader
@@ -266,7 +369,7 @@ export function GtfsPage() {
             </button>
           ) : undefined
         }
-        description="Import, validate, stage, activate, and roll back GTFS datasets without losing prior versions. This view is structured around operational feed control and future scheduled sync support."
+        description="Import, validate, stage, activate, and inspect GTFS datasets without losing prior versions. The explorer below now exposes real routes, trips, directions, destinations, and stop sequences from each retained feed."
         eyebrow="Transit Feed Control"
         title="GTFS"
       />
@@ -327,7 +430,7 @@ export function GtfsPage() {
               <label className="field field--wide">
                 <span className="field__label">Zip archive</span>
                 <input className="input-control" disabled={!canManageGtfs || isSubmitting} id="gtfs-upload-input" accept=".zip,application/zip" onChange={(event) => setUploadFile(event.currentTarget.files?.[0] ?? null)} type="file" />
-                <span className="helper-text">Remote URL sync and scheduled refresh are reserved for the next ingestion adapter, but they will reuse this same dataset and activation model.</span>
+                <span className="helper-text">Routes, trips, directions, stop_times, and destinations from the uploaded feed are all exposed in the explorer once validation succeeds.</span>
               </label>
               <label className="field field--wide">
                 <span className="field__label">Dataset label</span>
@@ -358,17 +461,17 @@ export function GtfsPage() {
               </div>
               <div className="detail-row">
                 <div>
+                  <div className="detail-row__label">Explorer dataset</div>
+                  <div className="detail-row__meta">The route and trip explorer can inspect either the active dataset or a standby version before activation.</div>
+                </div>
+                <span className="tone-pill tone-pill--accent">{selectedDataset?.datasetLabel ?? "No dataset selected"}</span>
+              </div>
+              <div className="detail-row">
+                <div>
                   <div className="detail-row__label">Version preservation</div>
                   <div className="detail-row__meta">Previous datasets remain available for rollback instead of being overwritten by newer imports.</div>
                 </div>
                 <span className="tone-pill tone-pill--accent">Enabled</span>
-              </div>
-              <div className="detail-row">
-                <div>
-                  <div className="detail-row__label">Scheduled sync</div>
-                  <div className="detail-row__meta">Manual triggers are live now, and the import service boundary is ready for later scheduled or remote URL adapters.</div>
-                </div>
-                <span className="tone-pill tone-pill--warn">Planned next</span>
               </div>
             </div>
           </Panel>
@@ -386,7 +489,7 @@ export function GtfsPage() {
                   const canRollbackToDataset = activeDataset?.previousDatasetId === dataset.id;
 
                   return (
-                    <article className={`registry-card${selectedJob?.datasetId === dataset.id ? " registry-card--selected" : ""}`} key={dataset.id}>
+                    <article className={`registry-card${selectedDatasetId === dataset.id ? " registry-card--selected" : ""}`} key={dataset.id}>
                       <div className="registry-card__header">
                         <div>
                           <div className="registry-card__eyebrow">{dataset.fileName ?? dataset.sourceType}</div>
@@ -402,10 +505,13 @@ export function GtfsPage() {
                       <div className="registry-card__specs">
                         <div className="registry-card__spec"><span>Stops</span><strong>{dataset.stopCount}</strong></div>
                         <div className="registry-card__spec"><span>Stop times</span><strong>{dataset.stopTimeCount}</strong></div>
-                        <div className="registry-card__spec"><span>Activated</span><strong>{dataset.activatedAt ? formatConsoleTime(dataset.activatedAt, locale) : "Not active"}</strong></div>
+                        <div className="registry-card__spec"><span>Activated</span><strong>{dataset.activatedAt ? formatConsoleDateTime(dataset.activatedAt, locale) : "Not active"}</strong></div>
                         <div className="registry-card__spec"><span>Source</span><strong>{dataset.sourceUri ?? dataset.sourceType}</strong></div>
                       </div>
                       <div className="registry-card__actions">
+                        <button className="action-button action-button--secondary" onClick={() => handleSelectDataset(dataset.id)} type="button">
+                          {selectedDatasetId === dataset.id ? "Exploring" : "Explore dataset"}
+                        </button>
                         {!dataset.isActive ? (
                           <button className="action-button action-button--secondary" disabled={!canManageGtfs || isSubmitting} onClick={() => void handleActivateDataset(dataset, false)} type="button">
                             Activate dataset
@@ -435,7 +541,7 @@ export function GtfsPage() {
                   <article className="event-item" key={job.id}>
                     <div className="event-item__header">
                       <strong>{job.sourceType === "upload" ? "Browser upload" : job.sourceType === "local_path" ? "Local path import" : formatStatusLabel(job.sourceType)}</strong>
-                      <span>{formatConsoleTime(job.createdAt, locale)}</span>
+                      <span>{formatConsoleDateTime(job.createdAt, locale)}</span>
                     </div>
                     <div className="event-item__body">{job.sourceUri}</div>
                     <div className="event-item__meta">
@@ -479,7 +585,7 @@ export function GtfsPage() {
                       <span className={`tone-pill tone-pill--${item.severity === "error" ? "critical" : "warn"}`}>{item.severity}</span>
                       {item.fieldName ? <span>{item.fieldName}</span> : null}
                       {item.entityKey ? <span>{item.entityKey}</span> : null}
-                      <span>{formatConsoleTime(item.createdAt, locale)}</span>
+                      <span>{formatConsoleDateTime(item.createdAt, locale)}</span>
                     </div>
                   </article>
                 ))}
@@ -488,21 +594,141 @@ export function GtfsPage() {
           </Panel>
         </div>
       </div>
+
+      <section className="panel-grid panel-grid--two">
+        <Panel description="Explore imported routes, transport types, and destination families from the selected dataset. This reflects the actual contents of your uploaded GTFS package, not only summary counts." title="Route catalog">
+          {isCatalogLoading ? (
+            <div className="empty-state">Loading routes from the selected dataset...</div>
+          ) : !catalog || catalog.routes.length === 0 ? (
+            <div className="empty-state">Select a validated dataset to inspect its routes and destinations.</div>
+          ) : (
+            <div className="event-list">
+              {catalog.routes.map((route) => (
+                <article className="event-item" key={route.id}>
+                  <div className="event-item__header">
+                    <strong>{route.routeShortName} � {routeTypeLabel(route.routeType)}</strong>
+                    <span>{route.tripCount} trips</span>
+                  </div>
+                  <div className="event-item__body">{route.routeLongName ?? summarizeDestinations(route)}</div>
+                  <div className="event-item__meta">
+                    <span className="tone-pill tone-pill--accent">{route.destinationCount} destinations</span>
+                    {route.directionNames.slice(0, 2).map((name) => <span key={name}>{name}</span>)}
+                    {route.routeColor ? <span>#{route.routeColor}</span> : null}
+                  </div>
+                  <div className="registry-card__actions">
+                    <button className="action-button action-button--secondary" onClick={() => handleSelectRoute(route.id)} type="button">
+                      {selectedRouteId === route.id ? "Inspecting route" : "Inspect route"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel description="Trips are shown for the selected route, including headsigns, direction names, shape IDs, service IDs, and stop counts. This is where you can confirm the feed imported the real working service patterns." title={selectedRoute ? `Trips for route ${selectedRoute.routeShortName}` : "Trips"}>
+          {isCatalogLoading ? (
+            <div className="empty-state">Loading trips for the selected route...</div>
+          ) : !selectedRoute ? (
+            <div className="empty-state">Select a route to inspect its trips and destinations.</div>
+          ) : catalog?.trips.length ? (
+            <div className="registry-grid gtfs-grid--single">
+              {catalog.trips.map((trip) => (
+                <article className={`registry-card${selectedTripId === trip.id ? " registry-card--selected" : ""}`} key={trip.id}>
+                  <div className="registry-card__header">
+                    <div>
+                      <div className="registry-card__eyebrow">{trip.routeShortName} � {trip.serviceId}</div>
+                      <h3 className="registry-card__title">{formatTripTitle(trip)}</h3>
+                      <div className="registry-card__subtext">{buildTripMeta(trip)}</div>
+                    </div>
+                    <div className="badge-row">
+                      <span className="tone-pill tone-pill--accent">{formatGtfsOffset(trip.startOffsetSeconds)} - {formatGtfsOffset(trip.endOffsetSeconds)}</span>
+                      <span className="tone-pill tone-pill--neutral">{trip.stopCount} stops</span>
+                    </div>
+                  </div>
+                  <div className="registry-card__specs">
+                    <div className="registry-card__spec"><span>Direction</span><strong>{trip.directionName ?? trip.variantHeadsign ?? trip.directionId ?? "Not set"}</strong></div>
+                    <div className="registry-card__spec"><span>Shape</span><strong>{trip.shapeId ?? "Not set"}</strong></div>
+                    <div className="registry-card__spec"><span>Block</span><strong>{trip.blockId ?? "Not set"}</strong></div>
+                    <div className="registry-card__spec"><span>Accessibility</span><strong>{formatAccessibility(trip)}</strong></div>
+                  </div>
+                  <div className="registry-card__actions">
+                    <button className="action-button action-button--secondary" onClick={() => setSelectedTripId(trip.id)} type="button">
+                      {selectedTripId === trip.id ? "Inspecting stops" : "Inspect stop times"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">No trips were found for the selected route in this dataset.</div>
+          )}
+        </Panel>
+      </section>
+
+      <Panel description="Stop times for the selected trip, including arrival and departure times, stop order, and optional stop-level headsign overrides. This makes it much easier to validate real imported destinations and service patterns." title={selectedTrip ? `Stop sequence for ${formatTripTitle(selectedTrip)}` : "Stop sequence"}>
+        {isStopsLoading ? (
+          <div className="empty-state">Loading stop sequence...</div>
+        ) : !selectedTrip ? (
+          <div className="empty-state">Select a trip to inspect stop_times and stop ordering.</div>
+        ) : tripStops.length === 0 ? (
+          <div className="empty-state">This trip has no stored stop times yet.</div>
+        ) : (
+          <div className="event-list">
+            {tripStops.map((stop) => (
+              <article className="event-item" key={`${stop.stopId}-${stop.stopSequence}`}>
+                <div className="event-item__header">
+                  <strong>{stop.stopSequence}. {stop.stopName}</strong>
+                  <span>{formatGtfsOffset(stop.arrivalOffsetSeconds)} / {formatGtfsOffset(stop.departureOffsetSeconds)}</span>
+                </div>
+                <div className="event-item__body">{stop.stopCode ? `Stop code ${stop.stopCode}` : "No public stop code"}</div>
+                <div className="event-item__meta">
+                  <span>{stop.latitude.toFixed(5)}, {stop.longitude.toFixed(5)}</span>
+                  {stop.stopHeadsign ? <span>Headsign override: {stop.stopHeadsign}</span> : null}
+                  {stop.pickupType !== null ? <span>Pickup {stop.pickupType}</span> : null}
+                  {stop.dropOffType !== null ? <span>Drop-off {stop.dropOffType}</span> : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }
 
-function formatConsoleTime(timestamp: string, locale?: string): string {
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+function buildTripMeta(trip: GtfsTripCatalogRecord): string {
+  const parts = [trip.externalTripId];
+
+  if (trip.directionName) {
+    parts.push(trip.directionName);
+  } else if (trip.variantHeadsign) {
+    parts.push(trip.variantHeadsign);
+  }
+
+  if (trip.headsign) {
+    parts.push(`destination ${trip.headsign}`);
+  }
+
+  return parts.join(" � ");
+}
+
+function formatAccessibility(trip: GtfsTripCatalogRecord): string {
+  const labels: string[] = [];
+
+  if (trip.wheelchairAccessible !== null) {
+    labels.push(`wheelchair ${trip.wheelchairAccessible}`);
+  }
+
+  if (trip.bikesAllowed !== null) {
+    labels.push(`bikes ${trip.bikesAllowed}`);
+  }
+
+  return labels[0] ?? "Not set";
 }
 
 function formatDatasetMeta(dataset: GtfsDatasetRecord, locale?: string): string {
-  const parts = [formatStatusLabel(dataset.status), formatConsoleTime(dataset.createdAt, locale)];
+  const parts = [formatStatusLabel(dataset.status), formatConsoleDateTime(dataset.createdAt, locale)];
   const warningCount = dataset.validationSummary["warningCount"];
 
   if (typeof warningCount === "number") {
@@ -524,6 +750,10 @@ function formatStatusLabel(value: string): string {
     .join(" ");
 }
 
+function formatTripTitle(trip: GtfsTripCatalogRecord): string {
+  return trip.headsign ?? trip.shortName ?? trip.externalTripId;
+}
+
 function jobTone(status: GtfsImportJobRecord["status"]): "accent" | "critical" | "good" | "neutral" | "warn" {
   switch (status) {
     case "succeeded":
@@ -541,6 +771,18 @@ function jobTone(status: GtfsImportJobRecord["status"]): "accent" | "critical" |
   }
 }
 
+function pickSelectedDatasetId(datasets: GtfsDatasetRecord[], preferredDatasetId: string | null | undefined, activeDatasetId: string | null): string | null {
+  if (preferredDatasetId && datasets.some((dataset) => dataset.id === preferredDatasetId)) {
+    return preferredDatasetId;
+  }
+
+  if (activeDatasetId && datasets.some((dataset) => dataset.id === activeDatasetId)) {
+    return activeDatasetId;
+  }
+
+  return datasets[0]?.id ?? null;
+}
+
 function pickSelectedJobId(jobs: GtfsImportJobRecord[], preferredJobId: string | null | undefined): string | null {
   if (preferredJobId && jobs.some((job) => job.id === preferredJobId)) {
     return preferredJobId;
@@ -548,6 +790,14 @@ function pickSelectedJobId(jobs: GtfsImportJobRecord[], preferredJobId: string |
 
   const prioritizedJob = jobs.find((job) => job.status === "failed" || job.validationErrorCount > 0 || job.warningCount > 0);
   return prioritizedJob?.id ?? jobs[0]?.id ?? null;
+}
+
+function pickSelectedTripId(trips: GtfsTripCatalogRecord[], preferredTripId: string | null | undefined): string | null {
+  if (preferredTripId && trips.some((trip) => trip.id === preferredTripId)) {
+    return preferredTripId;
+  }
+
+  return trips[0]?.id ?? null;
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -568,6 +818,34 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
+function routeTypeLabel(routeType: number): string {
+  switch (routeType) {
+    case 0:
+      return "Tram";
+    case 1:
+      return "Metro";
+    case 2:
+      return "Rail";
+    case 3:
+      return "Bus";
+    case 4:
+      return "Ferry";
+    case 5:
+      return "Cable tram";
+    case 6:
+      return "Aerial";
+    case 7:
+      return "Funicular";
+    case 11:
+      return "Trolleybus";
+    case 12:
+      return "Monorail";
+    default:
+      return `Type ${routeType}`;
+  }
+}
 
-
-
+function summarizeDestinations(route: GtfsRouteCatalogRecord): string {
+  const sample = route.destinationHeadsigns.slice(0, 3).join(" � ");
+  return sample || "No destination labels found.";
+}

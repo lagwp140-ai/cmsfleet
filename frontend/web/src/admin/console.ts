@@ -1,3 +1,4 @@
+import { formatConsoleDateTime } from "../lib/time";
 import type { AdminDashboardResponse, AuditEvent } from "../auth/types";
 
 export type AdminSectionKey =
@@ -221,12 +222,7 @@ export function formatConsoleTime(timestamp: string | null, locale?: string): st
     return "Awaiting sync";
   }
 
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 export function getAdminHref(section: AdminSection): string {
@@ -550,6 +546,9 @@ export function buildModuleDefinition(
       throw new Error(`Unsupported admin module definition: ${moduleKey}`);
   }
 }
+
+
+
 
 
 

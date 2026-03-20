@@ -22,6 +22,7 @@ import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 interface ConfigScopeState {
   activeVersion: ConfigVersionRecord | null;
@@ -587,12 +588,7 @@ function formatTime(value: string | null, locale?: string): string {
     return "Unavailable";
   }
 
-  return new Date(value).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(value, locale);
 }
 
 function parseDraft(value: string): Record<string, unknown> {
@@ -660,3 +656,6 @@ function toScopeId(scopeType: ConfigScopeType, scopeKey: string): string {
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+
+

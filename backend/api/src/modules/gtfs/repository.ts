@@ -1,12 +1,16 @@
 import type { Pool, PoolClient } from "pg";
 
 import type {
+  GtfsDatasetCatalog,
   GtfsDatasetRecord,
   GtfsImportActivationMode,
   GtfsImportErrorRecord,
   GtfsImportJobRecord,
   GtfsImportSourceType,
   GtfsOverview,
+  GtfsRouteCatalogRecord,
+  GtfsTripCatalogRecord,
+  GtfsTripStopRecord,
   GtfsValidationIssue,
   ParsedGtfsFeed
 } from "./types.js";
@@ -100,6 +104,147 @@ export class GtfsRepository {
     return result.rows;
   }
 
+  async getDatasetCatalog(datasetId: string, routeId: string | null, limits: { routes: number; trips: number }): Promise<GtfsDatasetCatalog | null> {
+    const dataset = await this.findDatasetById(datasetId);
+
+    if (!dataset) {
+      return null;
+    }
+
+    const routes = await this.listDatasetRoutes(datasetId, limits.routes);
+    const selectedRouteId = routeId && routes.some((route) => route.id === routeId)
+      ? routeId
+      : routes[0]?.id ?? null;
+    const trips = selectedRouteId
+      ? await this.listDatasetTrips(datasetId, selectedRouteId, limits.trips)
+      : [];
+
+    return {
+      dataset,
+      routes,
+      selectedRouteId,
+      trips
+    };
+  }
+
+  async listDatasetRoutes(datasetId: string, limit: number): Promise<GtfsRouteCatalogRecord[]> {
+    const result = await this.pool.query<GtfsRouteCatalogRecord>(
+      `
+        SELECT
+          routes.id::text AS id,
+          routes.agency_id AS "agencyId",
+          routes.external_route_id AS "externalRouteId",
+          routes.route_short_name AS "routeShortName",
+          routes.route_long_name AS "routeLongName",
+          routes.route_type AS "routeType",
+          routes.route_color AS "routeColor",
+          routes.route_text_color AS "routeTextColor",
+          COALESCE(trip_stats.trip_count, 0)::integer AS "tripCount",
+          COALESCE(trip_stats.destination_count, 0)::integer AS "destinationCount",
+          COALESCE(trip_stats.destination_headsigns, ARRAY[]::text[]) AS "destinationHeadsigns",
+          COALESCE(trip_stats.direction_names, ARRAY[]::text[]) AS "directionNames"
+        FROM transit.routes routes
+        LEFT JOIN (
+          SELECT
+            trips.route_id,
+            COUNT(*)::integer AS trip_count,
+            COUNT(DISTINCT COALESCE(NULLIF(trips.trip_headsign, ''), NULLIF(variants.headsign, ''), NULLIF(trips.trip_short_name, ''), trips.external_trip_id))::integer AS destination_count,
+            ARRAY_REMOVE(
+              ARRAY_AGG(DISTINCT COALESCE(NULLIF(trips.trip_headsign, ''), NULLIF(variants.headsign, ''), NULLIF(trips.trip_short_name, ''), trips.external_trip_id)),
+              NULL
+            ) AS destination_headsigns,
+            ARRAY_REMOVE(
+              ARRAY_AGG(DISTINCT NULLIF(COALESCE(trips.metadata->>'direction_name', variants.metadata->>'direction_name', variants.headsign), '')),
+              NULL
+            ) AS direction_names
+          FROM transit.trips trips
+          LEFT JOIN transit.route_variants variants ON variants.id = trips.route_variant_id
+          WHERE trips.dataset_id = $1
+          GROUP BY trips.route_id
+        ) trip_stats ON trip_stats.route_id = routes.id
+        WHERE routes.dataset_id = $1
+        ORDER BY routes.route_short_name ASC, routes.route_long_name ASC NULLS LAST, routes.id ASC
+        LIMIT $2
+      `,
+      [datasetId, limit]
+    );
+
+    return result.rows;
+  }
+
+  async listDatasetTrips(datasetId: string, routeId: string, limit: number): Promise<GtfsTripCatalogRecord[]> {
+    const result = await this.pool.query<GtfsTripCatalogRecord>(
+      `
+        WITH trip_bounds AS (
+          SELECT
+            stop_times.trip_id,
+            MIN(stop_times.arrival_offset_seconds) AS start_offset_seconds,
+            MAX(stop_times.departure_offset_seconds) AS end_offset_seconds,
+            COUNT(*)::integer AS stop_count
+          FROM transit.stop_times stop_times
+          GROUP BY stop_times.trip_id
+        )
+        SELECT
+          trips.id::text AS id,
+          trips.route_id::text AS "routeId",
+          routes.route_short_name AS "routeShortName",
+          routes.route_long_name AS "routeLongName",
+          trips.external_trip_id AS "externalTripId",
+          trips.service_id AS "serviceId",
+          trips.trip_headsign AS headsign,
+          trips.trip_short_name AS "shortName",
+          trips.direction_id AS "directionId",
+          COALESCE(NULLIF(trips.metadata->>'direction_name', ''), NULLIF(variants.metadata->>'direction_name', ''), variants.headsign) AS "directionName",
+          variants.headsign AS "variantHeadsign",
+          trips.shape_id AS "shapeId",
+          trips.block_id AS "blockId",
+          trips.wheelchair_accessible AS "wheelchairAccessible",
+          trips.bikes_allowed AS "bikesAllowed",
+          trip_bounds.start_offset_seconds AS "startOffsetSeconds",
+          trip_bounds.end_offset_seconds AS "endOffsetSeconds",
+          COALESCE(trip_bounds.stop_count, 0)::integer AS "stopCount"
+        FROM transit.trips trips
+        INNER JOIN transit.routes routes ON routes.id = trips.route_id
+        LEFT JOIN transit.route_variants variants ON variants.id = trips.route_variant_id
+        LEFT JOIN trip_bounds ON trip_bounds.trip_id = trips.id
+        WHERE trips.dataset_id = $1
+          AND trips.route_id = $2::uuid
+        ORDER BY trip_bounds.start_offset_seconds ASC NULLS LAST, COALESCE(trips.trip_headsign, trips.trip_short_name, trips.external_trip_id) ASC, trips.id ASC
+        LIMIT $3
+      `,
+      [datasetId, routeId, limit]
+    );
+
+    return result.rows;
+  }
+
+  async listTripStops(datasetId: string, tripId: string): Promise<GtfsTripStopRecord[]> {
+    const result = await this.pool.query<GtfsTripStopRecord>(
+      `
+        SELECT
+          stops.id::text AS "stopId",
+          stops.stop_name AS "stopName",
+          stops.stop_code AS "stopCode",
+          stops.latitude::double precision AS latitude,
+          stops.longitude::double precision AS longitude,
+          stop_times.stop_sequence AS "stopSequence",
+          stop_times.arrival_offset_seconds AS "arrivalOffsetSeconds",
+          stop_times.departure_offset_seconds AS "departureOffsetSeconds",
+          stop_times.stop_headsign AS "stopHeadsign",
+          stop_times.pickup_type AS "pickupType",
+          stop_times.drop_off_type AS "dropOffType"
+        FROM transit.stop_times stop_times
+        INNER JOIN transit.trips trips ON trips.id = stop_times.trip_id
+        INNER JOIN transit.stops stops ON stops.id = stop_times.stop_id
+        WHERE trips.dataset_id = $1
+          AND trips.id = $2::uuid
+        ORDER BY stop_times.stop_sequence ASC
+      `,
+      [datasetId, tripId]
+    );
+
+    return result.rows;
+  }
   async listErrors(jobId: string, limit: number): Promise<GtfsImportErrorRecord[]> {
     const result = await this.pool.query<GtfsImportErrorRecord>(
       `
@@ -819,4 +964,6 @@ const DATASET_SELECT_SQL = `
     GROUP BY trips.dataset_id
   ) stop_time_counts ON stop_time_counts.dataset_id = d.id
 `;
+
+
 

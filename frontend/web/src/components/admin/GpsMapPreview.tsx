@@ -1,9 +1,12 @@
 import type { CSSProperties } from "react";
 
 import type { GpsConnectionState, GpsVehicleStatusRecord } from "../../admin/gpsTypes";
+import type { VehicleRouteResolutionRecord } from "../../admin/routeTypes";
+import { formatConsoleClock } from "../../lib/time";
 
 interface GpsMapPreviewProps {
   locale?: string;
+  routeStatusByVehicleId?: Record<string, VehicleRouteResolutionRecord>;
   vehicles: GpsVehicleStatusRecord[];
 }
 
@@ -21,7 +24,7 @@ const RIGA_LATITUDE_RANGE = { max: 57.08, min: 56.85 };
 const RIGA_LONGITUDE_RANGE = { max: 24.32, min: 23.95 };
 const ZOOM_LEVEL = 12;
 
-export function GpsMapPreview({ locale, vehicles }: GpsMapPreviewProps) {
+export function GpsMapPreview({ locale, routeStatusByVehicleId = {}, vehicles }: GpsMapPreviewProps) {
   const mappedVehicles = vehicles.filter(hasCoordinates);
   const focus = resolveMapFocus(mappedVehicles);
   const centerPoint = projectPoint(focus.latitude, focus.longitude, ZOOM_LEVEL);
@@ -84,10 +87,10 @@ export function GpsMapPreview({ locale, vehicles }: GpsMapPreviewProps) {
               className={`gps-map-marker gps-map-marker--${connectionTone(vehicle.connectionState)}`}
               key={vehicle.vehicleId}
               style={{ left: `${left}px`, top: `${top}px` }}
-              title={buildMarkerTitle(vehicle, locale)}
+              title={buildMarkerTitle(vehicle, routeStatusByVehicleId[vehicle.vehicleId], locale)}
             >
               <span className="gps-map-marker__dot" />
-              <span className="gps-map-marker__label">{vehicle.vehicleCode}</span>
+              <span className="gps-map-marker__label">{buildMarkerLabel(vehicle, routeStatusByVehicleId[vehicle.vehicleId])}</span>
             </div>
           ))}
         </div>
@@ -102,12 +105,15 @@ export function GpsMapPreview({ locale, vehicles }: GpsMapPreviewProps) {
           {visibleVehicles.slice(0, 8).map(({ vehicle }) => (
             <article className="gps-map-list__item" key={`list-${vehicle.vehicleId}`}>
               <div>
-                <strong>{vehicle.vehicleCode}</strong>
-                <div className="gps-map-list__meta">{vehicle.label}</div>
+<strong>{buildMarkerLabel(vehicle, routeStatusByVehicleId[vehicle.vehicleId])}</strong>
+                <div className="gps-map-list__meta">{buildListMeta(vehicle, routeStatusByVehicleId[vehicle.vehicleId])}</div>
               </div>
               <div className="gps-map-list__chips">
                 <span className={`tone-pill tone-pill--${connectionTone(vehicle.connectionState)}`}>{formatConnection(vehicle.connectionState)}</span>
                 <span className="tone-pill tone-pill--neutral">{vehicle.speedKph === null ? "Speed n/a" : `${Math.round(vehicle.speedKph)} km/h`}</span>
+                {routeStatusByVehicleId[vehicle.vehicleId]?.trip?.headsign || routeStatusByVehicleId[vehicle.vehicleId]?.trip?.variantHeadsign ? (
+                  <span className="tone-pill tone-pill--accent">{routeStatusByVehicleId[vehicle.vehicleId]?.trip?.headsign ?? routeStatusByVehicleId[vehicle.vehicleId]?.trip?.variantHeadsign}</span>
+                ) : null}
                 <span className="tone-pill tone-pill--neutral">{formatLastSeen(vehicle.lastSeenAt, locale)}</span>
               </div>
             </article>
@@ -118,8 +124,16 @@ export function GpsMapPreview({ locale, vehicles }: GpsMapPreviewProps) {
   );
 }
 
-function buildMarkerTitle(vehicle: GpsVehicleStatusRecord, locale?: string): string {
-  const parts = [vehicle.vehicleCode, vehicle.label, formatConnection(vehicle.connectionState)];
+function buildMarkerTitle(vehicle: GpsVehicleStatusRecord, route: VehicleRouteResolutionRecord | undefined, locale?: string): string {
+  const parts = [buildMarkerLabel(vehicle, route), vehicle.label, formatConnection(vehicle.connectionState)];
+
+  if (route?.trip?.headsign ?? route?.trip?.variantHeadsign) {
+    parts.push(route?.trip?.headsign ?? route?.trip?.variantHeadsign ?? "");
+  }
+
+  if (route?.nextStop) {
+    parts.push(`next ${route.nextStop.stopName}`);
+  }
 
   if (vehicle.speedKph !== null) {
     parts.push(`${Math.round(vehicle.speedKph)} km/h`);
@@ -196,10 +210,7 @@ function formatLastSeen(timestamp: string | null, locale?: string): string {
     return "No fix";
   }
 
-  return new Date(timestamp).toLocaleTimeString(locale ?? undefined, {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return formatConsoleClock(timestamp, locale);
 }
 
 function hasCoordinates(vehicle: GpsVehicleStatusRecord): vehicle is GpsVehicleStatusRecord & { latitude: number; longitude: number } {
@@ -260,3 +271,23 @@ function sortVehicles(left: GpsVehicleStatusRecord, right: GpsVehicleStatusRecor
 
   return leftFreshness - rightFreshness || left.vehicleCode.localeCompare(right.vehicleCode);
 }
+
+function buildListMeta(vehicle: GpsVehicleStatusRecord, route: VehicleRouteResolutionRecord | undefined): string {
+  const parts = [vehicle.label];
+
+  if (route?.route) {
+    parts.push(`Route ${route.route.routeShortName}`);
+  }
+
+  if (route?.nextStop) {
+    parts.push(`Next ${route.nextStop.stopName}`);
+  }
+
+  return parts.join(" · ");
+}
+
+function buildMarkerLabel(vehicle: GpsVehicleStatusRecord, route: VehicleRouteResolutionRecord | undefined): string {
+  return route?.route ? `${route.route.routeShortName} | ${vehicle.vehicleCode}` : vehicle.vehicleCode;
+}
+
+

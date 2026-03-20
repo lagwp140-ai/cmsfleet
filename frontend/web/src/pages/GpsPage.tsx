@@ -2,6 +2,7 @@ import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { fetchGpsMessages, fetchGpsStatus } from "../admin/gpsClient";
+import { fetchRouteResolutionStatus } from "../admin/routeClient";
 import type {
   GpsConnectionState,
   GpsMovementState,
@@ -9,11 +10,13 @@ import type {
   GpsVehicleStatusRecord,
   RecentGpsMessageRecord
 } from "../admin/gpsTypes";
+import type { VehicleRouteResolutionRecord } from "../admin/routeTypes";
 import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { GpsMapPreview } from "../components/admin/GpsMapPreview";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 export function GpsPage() {
   const navigate = useNavigate();
@@ -22,8 +25,10 @@ export function GpsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<RecentGpsMessageRecord[]>([]);
+  const [routeStatusByVehicleId, setRouteStatusByVehicleId] = useState<Record<string, VehicleRouteResolutionRecord>>({});
   const [status, setStatus] = useState<GpsStatusResponse | null>(null);
   const locale = dashboard?.tenant.locale;
+  const canInspectRoutes = user?.permissions.includes("dispatch:manage") ?? false;
 
   const handleUnauthorized = useEffectEvent(async () => {
     await logout();
@@ -35,11 +40,24 @@ export function GpsPage() {
     setError(null);
 
     try {
-      const [nextStatus, nextMessages] = await Promise.all([fetchGpsStatus(), fetchGpsMessages(16)]);
+      const [nextStatus, nextMessages, nextRouteStatus] = await Promise.all([
+        fetchGpsStatus(),
+        fetchGpsMessages(16),
+        canInspectRoutes
+          ? fetchRouteResolutionStatus().catch((requestError) => {
+              if (requestError instanceof ApiError && requestError.status === 403) {
+                return null;
+              }
+
+              throw requestError;
+            })
+          : Promise.resolve(null)
+      ]);
 
       startTransition(() => {
         setStatus(nextStatus);
         setMessages(nextMessages);
+        setRouteStatusByVehicleId(buildRouteStatusByVehicleId(nextRouteStatus?.vehicles ?? []));
       });
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
@@ -55,6 +73,16 @@ export function GpsPage() {
 
   useEffect(() => {
     void loadGpsData();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void loadGpsData();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [user?.id]);
 
   const summary = status?.summary;
@@ -86,7 +114,7 @@ export function GpsPage() {
       </section>
 
       <Panel description="Live bus positions rendered over an OpenStreetMap preview centered on Riga so dispatch can confirm where telemetry is landing right now." title="Riga map preview">
-        <GpsMapPreview locale={locale} vehicles={status?.vehicles ?? []} />
+        <GpsMapPreview locale={locale} routeStatusByVehicleId={routeStatusByVehicleId} vehicles={status?.vehicles ?? []} />
       </Panel>
 
       <section className="panel-grid panel-grid--two">
@@ -141,14 +169,14 @@ export function GpsPage() {
                 <article className="event-item" key={message.id}>
                   <div className="event-item__header">
                     <strong>{message.vehicleCode ?? "unmatched device"}</strong>
-                    <span>{formatTimestamp(message.receivedAt, locale)}</span>
+                    <span>{formatConsoleDateTime(message.receivedAt, locale)}</span>
                   </div>
                   <div className="event-item__body">{message.ingestStatus.toUpperCase()} · {message.sourceName}</div>
                   <div className="event-item__meta">
                     <span className={`tone-pill tone-pill--${messageTone(message.ingestStatus)}`}>{message.ingestStatus}</span>
                     {message.providerMessageId ? <span>{message.providerMessageId}</span> : null}
                     {message.latitude !== null && message.longitude !== null ? <span>{message.latitude.toFixed(6)}, {message.longitude.toFixed(6)}</span> : null}
-                    {message.positionTime ? <span>fix {formatTimestamp(message.positionTime, locale)}</span> : null}
+                    {message.positionTime ? <span>fix {formatConsoleDateTime(message.positionTime, locale)}</span> : null}
                   </div>
                 </article>
               ))}
@@ -166,7 +194,7 @@ export function GpsPage() {
               <div className="detail-row" key={vehicle.vehicleId}>
                 <div>
                   <div className="detail-row__label">{vehicle.vehicleCode} · {vehicle.label}</div>
-                  <div className="detail-row__meta">{buildVehicleMeta(vehicle, locale)}</div>
+                  <div className="detail-row__meta">{buildVehicleMeta(vehicle, routeStatusByVehicleId[vehicle.vehicleId], locale)}</div>
                 </div>
                 <span className={`tone-pill tone-pill--${connectionTone(vehicle.connectionState)}`}>
                   {formatConnectionLabel(vehicle.connectionState, vehicle.freshnessSeconds)}
@@ -182,7 +210,7 @@ export function GpsPage() {
   );
 }
 
-function buildVehicleMeta(vehicle: GpsVehicleStatusRecord, locale?: string): string {
+function buildVehicleMeta(vehicle: GpsVehicleStatusRecord, route: VehicleRouteResolutionRecord | undefined, locale?: string): string {
   const parts = [
     vehicle.registrationPlate ?? "no plate",
     vehicle.transportProfileKey,
@@ -192,16 +220,28 @@ function buildVehicleMeta(vehicle: GpsVehicleStatusRecord, locale?: string): str
     movementLabel(vehicle.movementState)
   ];
 
+  if (route?.route) {
+    parts.push(`route ${route.route.routeShortName}`);
+  }
+
+  if (route?.trip?.headsign ?? route?.trip?.variantHeadsign) {
+    parts.push(route?.trip?.headsign ?? route?.trip?.variantHeadsign ?? "");
+  }
+
+  if (route?.nextStop) {
+    parts.push(`next ${route.nextStop.stopName}`);
+  }
+
   if (vehicle.sourceName) {
     parts.push(vehicle.sourceName);
   }
 
   if (vehicle.lastSeenAt) {
-    parts.push(`last seen ${formatTimestamp(vehicle.lastSeenAt, locale)}`);
+    parts.push(`last seen ${formatConsoleDateTime(vehicle.lastSeenAt, locale)}`);
   }
 
   if (vehicle.positionTime) {
-    parts.push(`fix ${formatTimestamp(vehicle.positionTime, locale)}`);
+    parts.push(`fix ${formatConsoleDateTime(vehicle.positionTime, locale)}`);
   }
 
   if (vehicle.speedKph !== null) {
@@ -259,14 +299,7 @@ function formatConnectionLabel(state: GpsConnectionState, freshnessSeconds: numb
   }
 }
 
-function formatTimestamp(timestamp: string, locale?: string): string {
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
-}
+
 
 function messageTone(status: RecentGpsMessageRecord["ingestStatus"]): "accent" | "critical" | "good" | "neutral" | "warn" {
   switch (status) {
@@ -293,3 +326,8 @@ function movementLabel(state: GpsMovementState): string {
       return state;
   }
 }
+
+function buildRouteStatusByVehicleId(vehicles: VehicleRouteResolutionRecord[]): Record<string, VehicleRouteResolutionRecord> {
+  return Object.fromEntries(vehicles.map((vehicle) => [vehicle.vehicleId, vehicle]));
+}
+

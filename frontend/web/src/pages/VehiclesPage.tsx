@@ -18,6 +18,7 @@ import { useAdminConsole } from "../admin/useAdminConsole";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 type EditorMode = "create" | "edit";
 
@@ -552,12 +553,7 @@ function formatLabel(value: string): string {
 }
 
 function formatRegistryTime(timestamp: string, locale?: string): string {
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function formatRouteLabel(route: RouteOption): string {
@@ -648,6 +644,9 @@ function validateVehicleForm(input: VehicleMutationInput): string | null {
 
   return null;
 }
+
+
+
 
 
 

@@ -173,6 +173,62 @@ export interface ParsedGtfsFeed {
   trips: NormalizedGtfsTrip[];
 }
 
+export interface GtfsRouteCatalogRecord {
+  agencyId: string;
+  destinationCount: number;
+  destinationHeadsigns: string[];
+  directionNames: string[];
+  externalRouteId: string;
+  id: string;
+  routeColor: string | null;
+  routeLongName: string | null;
+  routeShortName: string;
+  routeTextColor: string | null;
+  routeType: number;
+  tripCount: number;
+}
+
+export interface GtfsTripCatalogRecord {
+  bikesAllowed: number | null;
+  blockId: string | null;
+  directionId: number | null;
+  directionName: string | null;
+  endOffsetSeconds: number | null;
+  externalTripId: string;
+  headsign: string | null;
+  id: string;
+  routeId: string;
+  routeLongName: string | null;
+  routeShortName: string;
+  serviceId: string;
+  shapeId: string | null;
+  shortName: string | null;
+  startOffsetSeconds: number | null;
+  stopCount: number;
+  variantHeadsign: string | null;
+  wheelchairAccessible: number | null;
+}
+
+export interface GtfsTripStopRecord {
+  arrivalOffsetSeconds: number;
+  departureOffsetSeconds: number;
+  dropOffType: number | null;
+  latitude: number;
+  longitude: number;
+  pickupType: number | null;
+  stopCode: string | null;
+  stopHeadsign: string | null;
+  stopId: string;
+  stopName: string;
+  stopSequence: number;
+}
+
+export interface GtfsDatasetCatalog {
+  dataset: GtfsDatasetRecord;
+  routes: GtfsRouteCatalogRecord[];
+  selectedRouteId: string | null;
+  trips: GtfsTripCatalogRecord[];
+}
 export interface GtfsValidationIssue {
   entityKey: string | null;
   fieldName: string | null;
@@ -182,3 +238,4 @@ export interface GtfsValidationIssue {
   rowNumber: number | null;
   severity: "error" | "warn";
 }
+

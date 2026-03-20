@@ -19,6 +19,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { ApiError } from "../auth/authClient";
 import type { AuditEvent, UserAccountStatus, UserRole } from "../auth/types";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 type EditorMode = "create" | "edit";
 
@@ -607,12 +608,7 @@ function formatConsoleTime(timestamp: string | null, locale?: string): string {
     return "Unavailable";
   }
 
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function formatLabel(value: string): string {
@@ -659,5 +655,8 @@ function validateUserForm(input: ManagedUserMutationInput): string | null {
 
   return null;
 }
+
+
+
 
 

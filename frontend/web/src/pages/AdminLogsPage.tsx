@@ -14,6 +14,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { ApiError, fetchAuditEvents } from "../auth/authClient";
 import type { AuditEvent } from "../auth/types";
 import { MetricCard, Notice, Panel, SectionHeader } from "../components/admin/AdminPrimitives";
+import { formatConsoleDateTime } from "../lib/time";
 
 interface DiagnosticsSnapshot {
   auditEvents: AuditEvent[];
@@ -290,12 +291,7 @@ function formatTime(timestamp: string | null, locale?: string): string {
     return "Unavailable";
   }
 
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function renderAuditEvents(events: AuditEvent[], locale?: string) {
@@ -425,4 +421,7 @@ function renderSystemEvents(events: SystemEventRecord[], locale?: string) {
     </div>
   );
 }
+
+
+
 

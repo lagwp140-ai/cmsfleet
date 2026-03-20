@@ -1,3 +1,4 @@
+import { formatConsoleClock, formatConsoleDateTime } from "../lib/time";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -508,12 +509,7 @@ function createEmptyCommandForm(): DisplayCommandFormState {
 }
 
 function formatGeneratedAt(timestamp: string, locale?: string): string {
-  return new Date(timestamp).toLocaleString(locale ?? undefined, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short"
-  });
+  return formatConsoleDateTime(timestamp, locale);
 }
 
 function formatModeLabel(value: string): string {
@@ -525,10 +521,7 @@ function formatModeLabel(value: string): string {
 }
 
 function formatPreviewTime(locale?: string): string {
-  return new Date().toLocaleTimeString(locale ?? undefined, {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return formatConsoleClock(new Date().toISOString(), locale);
 }
 
 function hydrateCommandForm(current: DisplayCommandFormState, domain: DisplayDomainResponse): DisplayCommandFormState {
@@ -597,5 +590,9 @@ const textAreaStyle = {
   minHeight: "112px",
   resize: "vertical"
 } as const;
+
+
+
+
 
 
